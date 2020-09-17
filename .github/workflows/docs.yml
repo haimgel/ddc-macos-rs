@@ -1,0 +1,21 @@
+name: docs
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build docs
+        run: |
+          cargo doc --lib --no-deps
+          echo "<meta http-equiv=refresh content=0;url=ddc_macos/index.html>" > target/doc/index.html
+      - name: Deploy docs
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./target/doc
