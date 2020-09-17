@@ -1,0 +1,22 @@
+[package]
+name = "ddc-macos"
+version = "0.1.0"
+authors = ["Haim Gelfenbeyn <haim@g8n.me>"]
+edition = "2018"
+description = "DDC/CI monitor control on MacOS"
+documentation = "http://haimgel.github.io/ddc-macos-rs/ddc_macos"
+readme = "README.md"
+repository = "https://github.com/haimgel/ddc-macos-rs"
+license = "MIT"
+keywords = ["ddc", "mccs", "vcp", "vesa", "macos"]
+
+[dependencies]
+scopeguard = "^1.1.0"
+mach = "^0.3.2"
+ddc = "^0.2.0"
+IOKit-sys = "^0.1.5"
+core-foundation = "^0.9.1"
+core-graphics = "^0.22.1"
+
+[badges]
+maintenance = { status = "actively-developed" }
