@@ -2,6 +2,8 @@ extern crate ddc_macos;
 use ddc::Ddc;
 
 #[test]
+#[ignore]
+/// Test getting current monitor inputs, this would fail on CI.
 fn test_get_vcp_feature() {
     let mut monitors = ddc_macos::Monitor::enumerate().unwrap();
     assert_ne!(monitors.len(), 0);
