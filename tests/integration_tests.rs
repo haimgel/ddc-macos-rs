@@ -7,7 +7,7 @@ fn test_get_vcp_feature() {
     assert_ne!(monitors.len(), 0);
 
     for monitor in monitors.iter_mut() {
-        let input = monitor.get_vcp_feature(0x60).unwrap();
-        assert_ne!(input.value(), 0);
+        let input = monitor.get_vcp_feature(0x60);
+        assert!(input.is_ok());
     }
 }
