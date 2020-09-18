@@ -133,15 +133,14 @@ impl Monitor {
     }
 
     /// Finds a framebuffer that matches display, returns a properly formatted *unique* display name
-    unsafe fn framebuffer_port_matches_display(port: io_service_t, display: CGDisplay) -> Option<()> {
+    fn framebuffer_port_matches_display(port: io_service_t, display: CGDisplay) -> Option<()> {
         let mut bus_count: IOItemCount = 0;
-        IOFBGetI2CInterfaceCount(port, &mut bus_count);
+        unsafe { IOFBGetI2CInterfaceCount(port, &mut bus_count); }
         if bus_count == 0 {
             return None;
         };
 
-        let info = IODisplayCreateInfoDictionary(port, kIODisplayOnlyPreferredName).as_ref()?;
-        let info = CFDictionary::<CFString, CFType>::wrap_under_create_rule(info);
+        let info = Self::display_info_dict(port)?;
 
         let display_vendor_key = CFString::from_static_string("DisplayVendorID");
         let display_product_key = CFString::from_static_string("DisplayProductID");
