@@ -147,9 +147,15 @@ impl Monitor {
         let display_product_key = CFString::from_static_string("DisplayProductID");
         let display_serial_key = CFString::from_static_string("DisplaySerialNumber");
 
-        let display_vendor = info.find(display_vendor_key)?.downcast::<CFNumber>()?.to_i64()? as u32;
-        let display_product = info.find(display_product_key)?.downcast::<CFNumber>()?.to_i64()? as u32;
-        let display_serial = info.find(display_serial_key)?.downcast::<CFNumber>()?.to_i64()? as u32;
+        let display_vendor = info.find(&display_vendor_key)?.downcast::<CFNumber>()?.to_i64()? as u32;
+        let display_product = info.find(&display_product_key)?.downcast::<CFNumber>()?.to_i64()? as u32;
+        // Display serial number is not always present. If it's not there, default to zero
+        // (to match what CGDisplay.serial_number() returns
+        let display_serial = info.find(&display_serial_key)
+            .and_then(|x| x.downcast::<CFNumber>())
+            .and_then(|x| x.to_i32())
+            .map(|x| x as u32)
+            .unwrap_or(0);
 
         if display_vendor == display.vendor_number()
             && display_product == display.model_number()
