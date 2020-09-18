@@ -4,9 +4,9 @@
 use crate::iokit_io2c_interface::*;
 use crate::iokit_display::*;
 use core_foundation::base::{kCFAllocatorDefault, CFType, TCFType};
-use core_foundation::dictionary::{CFDictionary, CFDictionaryRef};
+use core_foundation::dictionary::{CFDictionary};
 use core_foundation::number::CFNumber;
-use core_foundation::string::CFString;
+use core_foundation::string::{CFString, CFStringRef};
 use core_graphics::display::{CGDisplay, CGError};
 use ddc::{
     Command, CommandResult, DdcCommand, DdcCommandMarker, DdcHost, ErrorCode, I2C_ADDRESS_DDC_CI, SUB_ADDRESS_DDC_CI,
@@ -17,7 +17,7 @@ use std::os::raw::c_char;
 use std::{fmt, iter};
 use IOKit_sys::{
     io_iterator_t, io_service_t, kIOMasterPortDefault, kIOReturnSuccess, kMillisecondScale, IOItemCount,
-    IOIteratorNext, IOObjectRelease, IOObjectRetain, IOOptionBits, IORegistryEntryCreateCFProperties,
+    IOIteratorNext, IOObjectRelease, IOObjectRetain, IORegistryEntryCreateCFProperties,
     IOServiceGetMatchingServices, IOServiceMatching, IOServiceNameMatching,
 };
 
@@ -98,7 +98,26 @@ impl Monitor {
 
     /// Physical monitor description string.
     pub fn description(&self) -> String {
-        format!("{:?}", self.monitor)
+        let name = self
+            .product_name()
+            .unwrap_or(format!("{:04x}:{:04x}", self.monitor.vendor_number(), self.monitor.model_number()));
+        let serial = self.monitor.serial_number();
+        if serial != 0 {
+            format!("{} S/N {}", name, serial)
+        } else {
+            name
+        }
+    }
+
+    /// Product name for this monitor.
+    pub fn product_name(&self) -> Option<String> {
+        let info = Self::display_info_dict(self.frame_buffer)?;
+        let display_product_name_key = CFString::from_static_string("DisplayProductName");
+        let display_product_names_dict = info.find(&display_product_name_key)?.downcast::<CFDictionary>()?;
+        let (_, localized_product_names) = display_product_names_dict.get_keys_and_values();
+        localized_product_names
+            .first()
+            .map(|name| unsafe { CFString::wrap_under_get_rule(*name as CFStringRef) }.to_string())
     }
 
     /// CoreGraphics display handle for this monitor
@@ -106,16 +125,22 @@ impl Monitor {
         self.monitor
     }
 
-    unsafe fn framebuffer_port_matches_display(port: io_service_t, display: CGDisplay) -> Option<()> {
-        const NO_PRODUCT_NAME: IOOptionBits = 0x00000400;
+    fn display_info_dict(frame_buffer: io_service_t) -> Option<CFDictionary::<CFString, CFType>> {
+        unsafe {
+            let info = IODisplayCreateInfoDictionary(frame_buffer, kIODisplayOnlyPreferredName).as_ref()?;
+            return Some(CFDictionary::<CFString, CFType>::wrap_under_create_rule(info));
+        }
+    }
 
+    /// Finds a framebuffer that matches display, returns a properly formatted *unique* display name
+    unsafe fn framebuffer_port_matches_display(port: io_service_t, display: CGDisplay) -> Option<()> {
         let mut bus_count: IOItemCount = 0;
         IOFBGetI2CInterfaceCount(port, &mut bus_count);
         if bus_count == 0 {
             return None;
         };
 
-        let info = IODisplayCreateInfoDictionary(port, NO_PRODUCT_NAME).as_ref()?;
+        let info = IODisplayCreateInfoDictionary(port, kIODisplayOnlyPreferredName).as_ref()?;
         let info = CFDictionary::<CFString, CFType>::wrap_under_create_rule(info);
 
         let display_vendor_key = CFString::from_static_string("DisplayVendorID");
@@ -135,6 +160,7 @@ impl Monitor {
         return None;
     }
 
+    // Gets the framebuffer port
     unsafe fn get_io_framebuffer_port(display: CGDisplay) -> Option<io_service_t> {
         if display.is_builtin() {
             return None;

@@ -5,15 +5,15 @@ extern crate IOKit_sys;
 extern crate mach;
 
 use mach::vm_types::{mach_vm_address_t, mach_vm_size_t, vm_address_t};
-use std::os::raw::c_char;
+use std::os::raw::c_uint;
 use IOKit_sys::{io_service_t, IOItemCount, IOOptionBits, IOReturn};
 
 /// IOI2CRequest.sendTransactionType, IOI2CRequest.replyTransactionType
-pub const kIOI2CNoTransactionType: ::std::os::raw::c_uint = 0;
-pub const kIOI2CSimpleTransactionType: ::std::os::raw::c_uint = 1;
-pub const kIOI2CDDCciReplyTransactionType: ::std::os::raw::c_uint = 2;
-pub const kIOI2CCombinedTransactionType: ::std::os::raw::c_uint = 3;
-pub const kIOI2CDisplayPortNativeTransactionType: ::std::os::raw::c_uint = 4;
+pub const kIOI2CNoTransactionType: c_uint = 0;
+pub const kIOI2CSimpleTransactionType: c_uint = 1;
+pub const kIOI2CDDCciReplyTransactionType: c_uint = 2;
+pub const kIOI2CCombinedTransactionType: c_uint = 3;
+pub const kIOI2CDisplayPortNativeTransactionType: c_uint = 4;
 
 pub type IOI2CRequestCompletion = ::std::option::Option<unsafe extern "C" fn(request: *mut IOI2CRequest)>;
 

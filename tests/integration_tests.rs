@@ -13,3 +13,13 @@ fn test_get_vcp_feature() {
         assert!(input.is_ok());
     }
 }
+
+#[test]
+#[ignore]
+/// Test monitor description. Not on CI, no monitors there.
+fn test_description() {
+    let monitors = ddc_macos::Monitor::enumerate().unwrap();
+    let monitor = monitors.first().unwrap();
+    let description = monitor.description();
+    assert!(description.len() > 0);
+}
