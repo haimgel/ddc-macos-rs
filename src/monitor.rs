@@ -2,6 +2,7 @@
 #![doc(html_root_url = "http://haimgel.github.io/ddc-macos-rs/")]
 
 use crate::iokit_io2c_interface::*;
+use crate::iokit_display::*;
 use core_foundation::base::{kCFAllocatorDefault, CFType, TCFType};
 use core_foundation::dictionary::{CFDictionary, CFDictionaryRef};
 use core_foundation::number::CFNumber;
@@ -19,11 +20,6 @@ use IOKit_sys::{
     IOIteratorNext, IOObjectRelease, IOObjectRetain, IOOptionBits, IORegistryEntryCreateCFProperties,
     IOServiceGetMatchingServices, IOServiceMatching, IOServiceNameMatching,
 };
-
-extern "C" {
-    #[link(name = "IOKit", kind = "framework")]
-    fn IODisplayCreateInfoDictionary(framebuffer: io_service_t, options: IOOptionBits) -> CFDictionaryRef;
-}
 
 /// An error that can occur during DDC/CI communication with a monitor
 #[derive(Debug)]

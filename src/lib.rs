@@ -21,6 +21,7 @@
 extern crate scopeguard;
 
 mod iokit_io2c_interface;
+mod iokit_display;
 mod monitor;
 
 pub use monitor::*;
