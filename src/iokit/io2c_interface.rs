@@ -1,12 +1,13 @@
 #![allow(non_camel_case_types,non_upper_case_globals,non_snake_case,unused)]
 
 /// Translation of IOKit/i2c/IOI2CInterface.h
-extern crate IOKit_sys;
+extern crate io_kit_sys;
 extern crate mach;
 
+use io_kit_sys::ret::IOReturn;
+use io_kit_sys::types::{io_service_t, IOItemCount, IOOptionBits};
 use mach::vm_types::{mach_vm_address_t, mach_vm_size_t, vm_address_t};
 use std::os::raw::c_uint;
-use IOKit_sys::{io_service_t, IOItemCount, IOOptionBits, IOReturn};
 
 /// IOI2CRequest.sendTransactionType, IOI2CRequest.replyTransactionType
 pub const kIOI2CNoTransactionType: c_uint = 0;

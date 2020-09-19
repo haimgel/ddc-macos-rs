@@ -12,12 +12,13 @@ keywords = ["ddc", "mccs", "vcp", "vesa", "macos"]
 categories = ["hardware-support", "os::macos-apis"]
 
 [dependencies]
-scopeguard = "^1.1.0"
-mach = "^0.3.2"
-ddc = "^0.2.0"
-IOKit-sys = "^0.1.5"
 core-foundation = "^0.9.1"
+core-foundation-sys = ">=0.8.1"
 core-graphics = "^0.22.1"
+ddc = "^0.2.0"
+io-kit-sys = "0.1.0"
+mach = "^0.3.2"
+scopeguard = "^1.1.0"
 
 [badges]
 maintenance = { status = "actively-developed" }

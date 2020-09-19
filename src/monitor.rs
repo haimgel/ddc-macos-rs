@@ -1,25 +1,26 @@
 #![deny(missing_docs)]
 #![doc(html_root_url = "http://haimgel.github.io/ddc-macos-rs/")]
 
-use crate::iokit_io2c_interface::*;
-use crate::iokit_display::*;
+use crate::iokit::display::*;
+use crate::iokit::io2c_interface::*;
 use core_foundation::base::{kCFAllocatorDefault, CFType, TCFType};
-use core_foundation::dictionary::{CFDictionary};
+use core_foundation::dictionary::CFDictionary;
 use core_foundation::number::CFNumber;
 use core_foundation::string::{CFString, CFStringRef};
 use core_graphics::display::{CGDisplay, CGError};
 use ddc::{
     Command, CommandResult, DdcCommand, DdcCommandMarker, DdcHost, ErrorCode, I2C_ADDRESS_DDC_CI, SUB_ADDRESS_DDC_CI,
 };
+use io_kit_sys::ret::kIOReturnSuccess;
+use io_kit_sys::types::{io_iterator_t, io_service_t, kMillisecondScale, IOItemCount};
+use io_kit_sys::{
+    kIOMasterPortDefault, IOIteratorNext, IOObjectRelease, IOObjectRetain, IORegistryEntryCreateCFProperties,
+    IOServiceGetMatchingServices, IOServiceMatching, IOServiceNameMatching,
+};
 use mach::kern_return::{kern_return_t, KERN_FAILURE};
 use mach::port::MACH_PORT_NULL;
 use std::os::raw::c_char;
 use std::{fmt, iter};
-use IOKit_sys::{
-    io_iterator_t, io_service_t, kIOMasterPortDefault, kIOReturnSuccess, kMillisecondScale, IOItemCount,
-    IOIteratorNext, IOObjectRelease, IOObjectRetain, IORegistryEntryCreateCFProperties,
-    IOServiceGetMatchingServices, IOServiceMatching, IOServiceNameMatching,
-};
 
 /// An error that can occur during DDC/CI communication with a monitor
 #[derive(Debug)]
@@ -98,9 +99,11 @@ impl Monitor {
 
     /// Physical monitor description string.
     pub fn description(&self) -> String {
-        let name = self
-            .product_name()
-            .unwrap_or(format!("{:04x}:{:04x}", self.monitor.vendor_number(), self.monitor.model_number()));
+        let name = self.product_name().unwrap_or(format!(
+            "{:04x}:{:04x}",
+            self.monitor.vendor_number(),
+            self.monitor.model_number()
+        ));
         let serial = self.monitor.serial_number();
         if serial != 0 {
             format!("{} S/N {}", name, serial)
@@ -125,7 +128,7 @@ impl Monitor {
         self.monitor
     }
 
-    fn display_info_dict(frame_buffer: io_service_t) -> Option<CFDictionary::<CFString, CFType>> {
+    fn display_info_dict(frame_buffer: io_service_t) -> Option<CFDictionary<CFString, CFType>> {
         unsafe {
             let info = IODisplayCreateInfoDictionary(frame_buffer, kIODisplayOnlyPreferredName).as_ref()?;
             return Some(CFDictionary::<CFString, CFType>::wrap_under_create_rule(info));
@@ -135,7 +138,9 @@ impl Monitor {
     /// Finds a framebuffer that matches display, returns a properly formatted *unique* display name
     fn framebuffer_port_matches_display(port: io_service_t, display: CGDisplay) -> Option<()> {
         let mut bus_count: IOItemCount = 0;
-        unsafe { IOFBGetI2CInterfaceCount(port, &mut bus_count); }
+        unsafe {
+            IOFBGetI2CInterfaceCount(port, &mut bus_count);
+        }
         if bus_count == 0 {
             return None;
         };
@@ -150,7 +155,8 @@ impl Monitor {
         let display_product = info.find(&display_product_key)?.downcast::<CFNumber>()?.to_i64()? as u32;
         // Display serial number is not always present. If it's not there, default to zero
         // (to match what CGDisplay.serial_number() returns
-        let display_serial = info.find(&display_serial_key)
+        let display_serial = info
+            .find(&display_serial_key)
             .and_then(|x| x.downcast::<CFNumber>())
             .and_then(|x| x.to_i32())
             .map(|x| x as u32)

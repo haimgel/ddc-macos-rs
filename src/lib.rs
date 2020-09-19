@@ -20,8 +20,7 @@
 #[macro_use]
 extern crate scopeguard;
 
-mod iokit_io2c_interface;
-mod iokit_display;
+mod iokit;
 mod monitor;
 
 pub use monitor::*;
