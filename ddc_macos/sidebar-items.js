@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Error","An error that can occur during DDC/CI communication with a monitor"]],"struct":[["Monitor","A handle to an attached monitor that allows the use of DDC/CI operations."]]});
+initSidebarItems({"enum":[["Error","An error that can occur during DDC/CI communication with a monitor"]],"macro":[["kern_try",""]],"struct":[["Monitor","A handle to an attached monitor that allows the use of DDC/CI operations."]]});

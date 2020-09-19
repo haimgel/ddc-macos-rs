@@ -290,33 +290,63 @@
 <span id="290">290</span>
 <span id="291">291</span>
 <span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">missing_docs</span>)]</span>
 <span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_root_url</span> <span class="op">=</span> <span class="string">&quot;http://haimgel.github.io/ddc-macos-rs/&quot;</span>)]</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">iokit_io2c_interface</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">iokit</span>::<span class="ident">display</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">iokit</span>::<span class="ident">io2c_interface</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">core_foundation</span>::<span class="ident">base</span>::{<span class="ident">kCFAllocatorDefault</span>, <span class="ident">CFType</span>, <span class="ident">TCFType</span>};
-<span class="kw">use</span> <span class="ident">core_foundation</span>::<span class="ident">dictionary</span>::{<span class="ident">CFDictionary</span>, <span class="ident">CFDictionaryRef</span>};
+<span class="kw">use</span> <span class="ident">core_foundation</span>::<span class="ident">dictionary</span>::<span class="ident">CFDictionary</span>;
 <span class="kw">use</span> <span class="ident">core_foundation</span>::<span class="ident">number</span>::<span class="ident">CFNumber</span>;
-<span class="kw">use</span> <span class="ident">core_foundation</span>::<span class="ident">string</span>::<span class="ident">CFString</span>;
+<span class="kw">use</span> <span class="ident">core_foundation</span>::<span class="ident">string</span>::{<span class="ident">CFString</span>, <span class="ident">CFStringRef</span>};
 <span class="kw">use</span> <span class="ident">core_graphics</span>::<span class="ident">display</span>::{<span class="ident">CGDisplay</span>, <span class="ident">CGError</span>};
 <span class="kw">use</span> <span class="ident">ddc</span>::{
     <span class="ident">Command</span>, <span class="ident">CommandResult</span>, <span class="ident">DdcCommand</span>, <span class="ident">DdcCommandMarker</span>, <span class="ident">DdcHost</span>, <span class="ident">ErrorCode</span>, <span class="ident">I2C_ADDRESS_DDC_CI</span>, <span class="ident">SUB_ADDRESS_DDC_CI</span>,
+};
+<span class="kw">use</span> <span class="ident">io_kit_sys</span>::<span class="ident">ret</span>::<span class="ident">kIOReturnSuccess</span>;
+<span class="kw">use</span> <span class="ident">io_kit_sys</span>::<span class="ident">types</span>::{<span class="ident">io_iterator_t</span>, <span class="ident">io_service_t</span>, <span class="ident">kMillisecondScale</span>, <span class="ident">IOItemCount</span>};
+<span class="kw">use</span> <span class="ident">io_kit_sys</span>::{
+    <span class="ident">kIOMasterPortDefault</span>, <span class="ident">IOIteratorNext</span>, <span class="ident">IOObjectRelease</span>, <span class="ident">IOObjectRetain</span>, <span class="ident">IORegistryEntryCreateCFProperties</span>,
+    <span class="ident">IOServiceGetMatchingServices</span>, <span class="ident">IOServiceMatching</span>, <span class="ident">IOServiceNameMatching</span>,
 };
 <span class="kw">use</span> <span class="ident">mach</span>::<span class="ident">kern_return</span>::{<span class="ident">kern_return_t</span>, <span class="ident">KERN_FAILURE</span>};
 <span class="kw">use</span> <span class="ident">mach</span>::<span class="ident">port</span>::<span class="ident">MACH_PORT_NULL</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">os</span>::<span class="ident">raw</span>::<span class="ident">c_char</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fmt</span>, <span class="ident">iter</span>};
-<span class="kw">use</span> <span class="ident">IOKit_sys</span>::{
-    <span class="ident">io_iterator_t</span>, <span class="ident">io_service_t</span>, <span class="ident">kIOMasterPortDefault</span>, <span class="ident">kIOReturnSuccess</span>, <span class="ident">kMillisecondScale</span>, <span class="ident">IOItemCount</span>,
-    <span class="ident">IOIteratorNext</span>, <span class="ident">IOObjectRelease</span>, <span class="ident">IOObjectRetain</span>, <span class="ident">IOOptionBits</span>, <span class="ident">IORegistryEntryCreateCFProperties</span>,
-    <span class="ident">IOServiceGetMatchingServices</span>, <span class="ident">IOServiceMatching</span>, <span class="ident">IOServiceNameMatching</span>,
-};
-
-<span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
-    <span class="attribute">#[<span class="ident">link</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;IOKit&quot;</span>, <span class="ident">kind</span> <span class="op">=</span> <span class="string">&quot;framework&quot;</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">IODisplayCreateInfoDictionary</span>(<span class="ident">framebuffer</span>: <span class="ident">io_service_t</span>, <span class="ident">options</span>: <span class="ident">IOOptionBits</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CFDictionaryRef</span>;
-}
 
 <span class="doccomment">/// An error that can occur during DDC/CI communication with a monitor</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
@@ -395,7 +425,28 @@
 
     <span class="doccomment">/// Physical monitor description string.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">description</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
-        <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="self">self</span>.<span class="ident">monitor</span>)
+        <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">product_name</span>().<span class="ident">unwrap_or</span>(<span class="macro">format</span><span class="macro">!</span>(
+            <span class="string">&quot;{:04x}:{:04x}&quot;</span>,
+            <span class="self">self</span>.<span class="ident">monitor</span>.<span class="ident">vendor_number</span>(),
+            <span class="self">self</span>.<span class="ident">monitor</span>.<span class="ident">model_number</span>()
+        ));
+        <span class="kw">let</span> <span class="ident">serial</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">monitor</span>.<span class="ident">serial_number</span>();
+        <span class="kw">if</span> <span class="ident">serial</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+            <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{} S/N {}&quot;</span>, <span class="ident">name</span>, <span class="ident">serial</span>)
+        } <span class="kw">else</span> {
+            <span class="ident">name</span>
+        }
+    }
+
+    <span class="doccomment">/// Product name for this monitor.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">product_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">display_info_dict</span>(<span class="self">self</span>.<span class="ident">frame_buffer</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">display_product_name_key</span> <span class="op">=</span> <span class="ident">CFString</span>::<span class="ident">from_static_string</span>(<span class="string">&quot;DisplayProductName&quot;</span>);
+        <span class="kw">let</span> <span class="ident">display_product_names_dict</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">find</span>(<span class="kw-2">&amp;</span><span class="ident">display_product_name_key</span>)<span class="question-mark">?</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="ident">CFDictionary</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">localized_product_names</span>) <span class="op">=</span> <span class="ident">display_product_names_dict</span>.<span class="ident">get_keys_and_values</span>();
+        <span class="ident">localized_product_names</span>
+            .<span class="ident">first</span>()
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">name</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">CFString</span>::<span class="ident">wrap_under_get_rule</span>(<span class="kw-2">*</span><span class="ident">name</span> <span class="kw">as</span> <span class="ident">CFStringRef</span>) }.<span class="ident">to_string</span>())
     }
 
     <span class="doccomment">/// CoreGraphics display handle for this monitor</span>
@@ -403,25 +454,39 @@
         <span class="self">self</span>.<span class="ident">monitor</span>
     }
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">framebuffer_port_matches_display</span>(<span class="ident">port</span>: <span class="ident">io_service_t</span>, <span class="ident">display</span>: <span class="ident">CGDisplay</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">const</span> <span class="ident">NO_PRODUCT_NAME</span>: <span class="ident">IOOptionBits</span> <span class="op">=</span> <span class="number">0x00000400</span>;
+    <span class="kw">fn</span> <span class="ident">display_info_dict</span>(<span class="ident">frame_buffer</span>: <span class="ident">io_service_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">CFDictionary</span><span class="op">&lt;</span><span class="ident">CFString</span>, <span class="ident">CFType</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">IODisplayCreateInfoDictionary</span>(<span class="ident">frame_buffer</span>, <span class="ident">kIODisplayOnlyPreferredName</span>).<span class="ident">as_ref</span>()<span class="question-mark">?</span>;
+            <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">CFDictionary</span>::<span class="op">&lt;</span><span class="ident">CFString</span>, <span class="ident">CFType</span><span class="op">&gt;</span>::<span class="ident">wrap_under_create_rule</span>(<span class="ident">info</span>));
+        }
+    }
 
+    <span class="doccomment">/// Finds a framebuffer that matches display, returns a properly formatted *unique* display name</span>
+    <span class="kw">fn</span> <span class="ident">framebuffer_port_matches_display</span>(<span class="ident">port</span>: <span class="ident">io_service_t</span>, <span class="ident">display</span>: <span class="ident">CGDisplay</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bus_count</span>: <span class="ident">IOItemCount</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="ident">IOFBGetI2CInterfaceCount</span>(<span class="ident">port</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">bus_count</span>);
+        <span class="kw">unsafe</span> {
+            <span class="ident">IOFBGetI2CInterfaceCount</span>(<span class="ident">port</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">bus_count</span>);
+        }
         <span class="kw">if</span> <span class="ident">bus_count</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
             <span class="kw">return</span> <span class="prelude-val">None</span>;
         };
 
-        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">IODisplayCreateInfoDictionary</span>(<span class="ident">port</span>, <span class="ident">NO_PRODUCT_NAME</span>).<span class="ident">as_ref</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">CFDictionary</span>::<span class="op">&lt;</span><span class="ident">CFString</span>, <span class="ident">CFType</span><span class="op">&gt;</span>::<span class="ident">wrap_under_create_rule</span>(<span class="ident">info</span>);
+        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">display_info_dict</span>(<span class="ident">port</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="ident">display_vendor_key</span> <span class="op">=</span> <span class="ident">CFString</span>::<span class="ident">from_static_string</span>(<span class="string">&quot;DisplayVendorID&quot;</span>);
         <span class="kw">let</span> <span class="ident">display_product_key</span> <span class="op">=</span> <span class="ident">CFString</span>::<span class="ident">from_static_string</span>(<span class="string">&quot;DisplayProductID&quot;</span>);
         <span class="kw">let</span> <span class="ident">display_serial_key</span> <span class="op">=</span> <span class="ident">CFString</span>::<span class="ident">from_static_string</span>(<span class="string">&quot;DisplaySerialNumber&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">display_vendor</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">find</span>(<span class="ident">display_vendor_key</span>)<span class="question-mark">?</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="ident">CFNumber</span><span class="op">&gt;</span>()<span class="question-mark">?</span>.<span class="ident">to_i64</span>()<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">u32</span>;
-        <span class="kw">let</span> <span class="ident">display_product</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">find</span>(<span class="ident">display_product_key</span>)<span class="question-mark">?</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="ident">CFNumber</span><span class="op">&gt;</span>()<span class="question-mark">?</span>.<span class="ident">to_i64</span>()<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">u32</span>;
-        <span class="kw">let</span> <span class="ident">display_serial</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">find</span>(<span class="ident">display_serial_key</span>)<span class="question-mark">?</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="ident">CFNumber</span><span class="op">&gt;</span>()<span class="question-mark">?</span>.<span class="ident">to_i64</span>()<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">u32</span>;
+        <span class="kw">let</span> <span class="ident">display_vendor</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">find</span>(<span class="kw-2">&amp;</span><span class="ident">display_vendor_key</span>)<span class="question-mark">?</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="ident">CFNumber</span><span class="op">&gt;</span>()<span class="question-mark">?</span>.<span class="ident">to_i64</span>()<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">u32</span>;
+        <span class="kw">let</span> <span class="ident">display_product</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">find</span>(<span class="kw-2">&amp;</span><span class="ident">display_product_key</span>)<span class="question-mark">?</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="ident">CFNumber</span><span class="op">&gt;</span>()<span class="question-mark">?</span>.<span class="ident">to_i64</span>()<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">u32</span>;
+        <span class="comment">// Display serial number is not always present. If it&#39;s not there, default to zero</span>
+        <span class="comment">// (to match what CGDisplay.serial_number() returns</span>
+        <span class="kw">let</span> <span class="ident">display_serial</span> <span class="op">=</span> <span class="ident">info</span>
+            .<span class="ident">find</span>(<span class="kw-2">&amp;</span><span class="ident">display_serial_key</span>)
+            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="ident">CFNumber</span><span class="op">&gt;</span>())
+            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">to_i32</span>())
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span> <span class="kw">as</span> <span class="ident">u32</span>)
+            .<span class="ident">unwrap_or</span>(<span class="number">0</span>);
 
         <span class="kw">if</span> <span class="ident">display_vendor</span> <span class="op">=</span><span class="op">=</span> <span class="ident">display</span>.<span class="ident">vendor_number</span>()
             <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">display_product</span> <span class="op">=</span><span class="op">=</span> <span class="ident">display</span>.<span class="ident">model_number</span>()
@@ -432,6 +497,7 @@
         <span class="kw">return</span> <span class="prelude-val">None</span>;
     }
 
+    <span class="comment">// Gets the framebuffer port</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">get_io_framebuffer_port</span>(<span class="ident">display</span>: <span class="ident">CGDisplay</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">io_service_t</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="ident">display</span>.<span class="ident">is_builtin</span>() {
             <span class="kw">return</span> <span class="prelude-val">None</span>;
