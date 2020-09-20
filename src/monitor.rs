@@ -3,6 +3,7 @@
 
 use crate::iokit::display::*;
 use crate::iokit::io2c_interface::*;
+use crate::iokit::wrappers::*;
 use core_foundation::base::{kCFAllocatorDefault, CFType, TCFType};
 use core_foundation::dictionary::CFDictionary;
 use core_foundation::number::CFNumber;
@@ -12,14 +13,9 @@ use ddc::{
     Command, CommandResult, DdcCommand, DdcCommandMarker, DdcHost, ErrorCode, I2C_ADDRESS_DDC_CI, SUB_ADDRESS_DDC_CI,
 };
 use io_kit_sys::ret::kIOReturnSuccess;
-use io_kit_sys::types::{io_iterator_t, io_service_t, kMillisecondScale, IOItemCount};
-use io_kit_sys::{
-    kIOMasterPortDefault, IOIteratorNext, IOObjectRelease, IOObjectRetain, IORegistryEntryCreateCFProperties,
-    IOServiceGetMatchingServices, IOServiceMatching, IOServiceNameMatching,
-};
+use io_kit_sys::types::{io_service_t, kMillisecondScale, IOItemCount};
+use io_kit_sys::IORegistryEntryCreateCFProperties;
 use mach::kern_return::{kern_return_t, KERN_FAILURE};
-use mach::port::MACH_PORT_NULL;
-use std::os::raw::c_char;
 use std::{fmt, iter};
 
 /// An error that can occur during DDC/CI communication with a monitor
@@ -41,6 +37,12 @@ fn verify_io(result: kern_return_t) -> Result<(), Error> {
     };
 }
 
+impl From<std::io::Error> for Error {
+    fn from(error: std::io::Error) -> Self {
+        Error::Io(error.raw_os_error().unwrap_or(KERN_FAILURE))
+    }
+}
+
 impl From<ErrorCode> for Error {
     fn from(error: ErrorCode) -> Self {
         Error::Ddc(error)
@@ -57,15 +59,7 @@ impl From<CGError> for Error {
 #[derive(Debug)]
 pub struct Monitor {
     monitor: CGDisplay,
-    frame_buffer: io_service_t,
-}
-
-impl Drop for Monitor {
-    fn drop(&mut self) {
-        unsafe {
-            IOObjectRelease(self.frame_buffer);
-        }
-    }
+    frame_buffer: IoObject,
 }
 
 impl fmt::Display for Monitor {
@@ -76,7 +70,7 @@ impl fmt::Display for Monitor {
 
 impl Monitor {
     /// Create a new monitor from the specified handle.
-    fn new(monitor: CGDisplay, frame_buffer: io_service_t) -> Self {
+    fn new(monitor: CGDisplay, frame_buffer: IoObject) -> Self {
         Monitor { monitor, frame_buffer }
     }
 
@@ -114,7 +108,7 @@ impl Monitor {
 
     /// Product name for this monitor.
     pub fn product_name(&self) -> Option<String> {
-        let info = Self::display_info_dict(self.frame_buffer)?;
+        let info = Self::display_info_dict(&self.frame_buffer)?;
         let display_product_name_key = CFString::from_static_string("DisplayProductName");
         let display_product_names_dict = info.find(&display_product_name_key)?.downcast::<CFDictionary>()?;
         let (_, localized_product_names) = display_product_names_dict.get_keys_and_values();
@@ -128,18 +122,18 @@ impl Monitor {
         self.monitor
     }
 
-    fn display_info_dict(frame_buffer: io_service_t) -> Option<CFDictionary<CFString, CFType>> {
+    fn display_info_dict(frame_buffer: &IoObject) -> Option<CFDictionary<CFString, CFType>> {
         unsafe {
-            let info = IODisplayCreateInfoDictionary(frame_buffer, kIODisplayOnlyPreferredName).as_ref()?;
+            let info = IODisplayCreateInfoDictionary(frame_buffer.into(), kIODisplayOnlyPreferredName).as_ref()?;
             return Some(CFDictionary::<CFString, CFType>::wrap_under_create_rule(info));
         }
     }
 
     /// Finds a framebuffer that matches display, returns a properly formatted *unique* display name
-    fn framebuffer_port_matches_display(port: io_service_t, display: CGDisplay) -> Option<()> {
+    fn framebuffer_port_matches_display(port: &IoObject, display: CGDisplay) -> Option<()> {
         let mut bus_count: IOItemCount = 0;
         unsafe {
-            IOFBGetI2CInterfaceCount(port, &mut bus_count);
+            IOFBGetI2CInterfaceCount(port.into(), &mut bus_count);
         }
         if bus_count == 0 {
             return None;
@@ -172,61 +166,34 @@ impl Monitor {
     }
 
     // Gets the framebuffer port
-    unsafe fn get_io_framebuffer_port(display: CGDisplay) -> Option<io_service_t> {
+    unsafe fn get_io_framebuffer_port(display: CGDisplay) -> Option<IoObject> {
         if display.is_builtin() {
             return None;
         }
-        let mut iter: io_iterator_t = 0;
-        let io_framebuffer = b"IOFramebuffer\0".as_ptr() as *const c_char;
-
-        if IOServiceGetMatchingServices(kIOMasterPortDefault, IOServiceMatching(io_framebuffer), &mut iter)
-            == kIOReturnSuccess
-        {
-            defer! { IOObjectRelease(iter); };
-
-            let mut serv: io_service_t;
-            while (serv = IOIteratorNext(iter), serv).1 != MACH_PORT_NULL {
-                defer! { IOObjectRelease(serv); };
-
-                if Self::framebuffer_port_matches_display(serv, display).is_some() {
-                    IOObjectRetain(serv);
-                    return Some(serv);
-                }
-            }
-        }
-        return None;
+        IoIterator::for_services("IOFramebuffer")?
+            .find(|framebuffer| Self::framebuffer_port_matches_display(framebuffer, display).is_some())
     }
 
     /// Get supported I2C / DDC transaction types
     /// DDCciReply is what we want, but Simple will also work
     unsafe fn get_supported_transaction_type() -> Option<u32> {
-        let mut iter: io_iterator_t = 0;
-        let mut io_service: io_service_t;
-
         let transaction_types_key = CFString::from_static_string("IOI2CTransactionTypes");
-        let framebuffer_interface_name = std::ffi::CStr::from_bytes_with_nul_unchecked(b"IOFramebufferI2CInterface\0");
 
-        if IOServiceGetMatchingServices(
-            kIOMasterPortDefault,
-            IOServiceNameMatching(framebuffer_interface_name.as_ptr()),
-            &mut iter,
-        ) == kIOReturnSuccess
-        {
-            defer! { IOObjectRelease(iter); };
-            while (io_service = IOIteratorNext(iter), io_service).1 != MACH_PORT_NULL {
-                defer! { IOObjectRelease(io_service); };
-                let mut service_properties = std::ptr::null_mut();
-
-                if IORegistryEntryCreateCFProperties(io_service, &mut service_properties, kCFAllocatorDefault as _, 0)
-                    == kIOReturnSuccess
-                {
-                    let info = CFDictionary::<CFString, CFType>::wrap_under_create_rule(service_properties as _);
-                    let transaction_types = info.find(&transaction_types_key)?.downcast::<CFNumber>()?.to_i64()?;
-                    if ((1 << kIOI2CDDCciReplyTransactionType) & transaction_types) != 0 {
-                        return Some(kIOI2CDDCciReplyTransactionType);
-                    } else if ((1 << kIOI2CSimpleTransactionType) & transaction_types) != 0 {
-                        return Some(kIOI2CSimpleTransactionType);
-                    }
+        for io_service in IoIterator::for_service_names("IOFramebufferI2CInterface")? {
+            let mut service_properties = std::ptr::null_mut();
+            if IORegistryEntryCreateCFProperties(
+                (&io_service).into(),
+                &mut service_properties,
+                kCFAllocatorDefault as _,
+                0,
+            ) == kIOReturnSuccess
+            {
+                let info = CFDictionary::<CFString, CFType>::wrap_under_create_rule(service_properties as _);
+                let transaction_types = info.find(&transaction_types_key)?.downcast::<CFNumber>()?.to_i64()?;
+                if ((1 << kIOI2CDDCciReplyTransactionType) & transaction_types) != 0 {
+                    return Some(kIOI2CDDCciReplyTransactionType);
+                } else if ((1 << kIOI2CSimpleTransactionType) & transaction_types) != 0 {
+                    return Some(kIOI2CSimpleTransactionType);
                 }
             }
         }
@@ -235,26 +202,23 @@ impl Monitor {
 
     /// send an I2C request to a display
     unsafe fn send_request(&self, request: &mut IOI2CRequest, post_request_delay: u32) -> Result<(), Error> {
-        let mut bus_count: io_service_t = 0;
-        let mut result: kern_return_t = KERN_FAILURE;
-        verify_io(IOFBGetI2CInterfaceCount(self.frame_buffer, &mut bus_count))?;
+        let mut bus_count = 0;
+        let mut result: Result<(), Error> = Err(Error::Io(KERN_FAILURE));
+        verify_io(IOFBGetI2CInterfaceCount((&self.frame_buffer).into(), &mut bus_count))?;
         for bus in 0..bus_count {
             let mut interface: io_service_t = 0;
-            if IOFBCopyI2CInterfaceForBus(self.frame_buffer, bus, &mut interface) == kIOReturnSuccess {
-                defer! { IOObjectRelease(interface); };
-                let mut connect: IOI2CConnectRef = 0;
-                if IOI2CInterfaceOpen(interface, 0, &mut connect) == kIOReturnSuccess {
-                    defer! { IOI2CInterfaceClose(connect, 0); };
-                    if IOI2CSendRequest(connect, 0, request) == kIOReturnSuccess {
-                        result = request.result;
-                        break;
-                    }
+            if IOFBCopyI2CInterfaceForBus((&self.frame_buffer).into(), bus, &mut interface) == kIOReturnSuccess {
+                let interface = IoObject::from(interface);
+                result = IoI2CInterfaceConnection::new(&interface)
+                    .and_then(|connection| connection.send_request(request))
+                    .map_err(From::from);
+                if result.is_ok() {
+                    break;
                 }
             }
         }
         std::thread::sleep(std::time::Duration::from_millis(post_request_delay as u64));
-        verify_io(result)?;
-        Ok(())
+        result
     }
 
     fn get_response_transaction_type<C: Command>(&self, _c: C) -> u32 {

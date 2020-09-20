@@ -4,6 +4,7 @@
 extern crate io_kit_sys;
 extern crate mach;
 
+use crate::iokit::wrappers::IoObject;
 use io_kit_sys::ret::IOReturn;
 use io_kit_sys::types::{io_service_t, IOItemCount, IOOptionBits};
 use mach::vm_types::{mach_vm_address_t, mach_vm_size_t, vm_address_t};
@@ -44,7 +45,11 @@ pub struct IOI2CRequest {
 }
 
 /// struct IOI2CConnect is opaque
-pub type IOI2CConnectRef = usize;
+#[repr(C)]
+pub struct IOI2CConnect {
+    _opaque: [u8; 0],
+}
+type IOI2CConnectRef = *mut IOI2CConnect;
 
 extern "C" {
     #[link(name = "IOKit", kind = "framework")]
@@ -71,4 +76,32 @@ extern "C" {
 
     /// Carries out the I2C transaction specified by an IOI2CRequest structure
     pub fn IOI2CSendRequest(connect: IOI2CConnectRef, options: IOOptionBits, request: *mut IOI2CRequest) -> IOReturn;
+}
+
+pub(crate) struct IoI2CInterfaceConnection(IOI2CConnectRef);
+
+impl IoI2CInterfaceConnection {
+    pub fn new(interface: &IoObject) -> Result<Self, std::io::Error> {
+        let mut handle = std::ptr::null_mut();
+        unsafe {
+            kern_try!(IOI2CInterfaceOpen(interface.into(), 0, &mut handle));
+        }
+        Ok(Self(handle))
+    }
+
+    pub fn send_request(&self, request: *mut IOI2CRequest) -> Result<(), std::io::Error> {
+        unsafe {
+            kern_try!(IOI2CSendRequest(self.0, 0, request));
+            kern_try!((*request).result);
+        }
+        Ok(())
+    }
+}
+
+impl Drop for IoI2CInterfaceConnection {
+    fn drop(&mut self) {
+        unsafe {
+            IOI2CInterfaceClose(self.0, 0);
+        }
+    }
 }

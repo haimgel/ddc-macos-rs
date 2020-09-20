@@ -1,7 +1,6 @@
 # ![allow(non_upper_case_globals,unused)]
 
 /// Selective translation of IOKit/graphics/IOGraphicsLib.h
-
 use core_foundation::dictionary::CFDictionaryRef;
 use io_kit_sys::types::{io_service_t, IOOptionBits};
 

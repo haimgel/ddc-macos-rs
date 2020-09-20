@@ -17,9 +17,6 @@
 //! # }
 //! ```
 
-#[macro_use]
-extern crate scopeguard;
-
 mod iokit;
 mod monitor;
 

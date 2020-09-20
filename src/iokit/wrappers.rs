@@ -1,7 +1,6 @@
 use core_foundation::base::{kCFAllocatorDefault, CFType, TCFType};
-use core_foundation::dictionary::{CFDictionary, CFMutableDictionary};
+use core_foundation::dictionary::{CFDictionary, CFMutableDictionary, CFMutableDictionaryRef};
 use core_foundation::string::CFString;
-use core_foundation_sys::dictionary::CFDictionaryRef;
 use io_kit_sys::types::{io_iterator_t, io_object_t};
 use io_kit_sys::{
     kIOMasterPortDefault, IOIteratorNext, IOObjectRelease, IORegistryEntryCreateCFProperties,
@@ -28,6 +27,18 @@ impl IoObject {
     }
 }
 
+impl From<io_object_t> for IoObject {
+    fn from(object: io_object_t) -> Self {
+        Self(object)
+    }
+}
+
+impl Into<io_object_t> for &IoObject {
+    fn into(self) -> io_object_t {
+        self.0
+    }
+}
+
 impl Drop for IoObject {
     fn drop(&mut self) {
         unsafe { IOObjectRelease(self.0) };
@@ -50,10 +61,10 @@ impl IoIterator {
         Self::matching_services(dict as _).ok()
     }
 
-    fn matching_services(dict: CFDictionaryRef) -> Result<Self, std::io::Error> {
-        let iter: io_iterator_t = 0;
+    fn matching_services(dict: CFMutableDictionaryRef) -> Result<Self, std::io::Error> {
+        let mut iter: io_iterator_t = 0;
         unsafe {
-            kern_try!(IOServiceGetMatchingServices(kIOMasterPortDefault, dict as _, iter as _));
+            kern_try!(IOServiceGetMatchingServices(kIOMasterPortDefault, dict as _, &mut iter));
         }
         Ok(Self { 0: iter })
     }
