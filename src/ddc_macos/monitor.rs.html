@@ -288,47 +288,13 @@
 <span id="288">288</span>
 <span id="289">289</span>
 <span id="290">290</span>
-<span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
-<span id="296">296</span>
-<span id="297">297</span>
-<span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
-<span id="313">313</span>
-<span id="314">314</span>
-<span id="315">315</span>
-<span id="316">316</span>
-<span id="317">317</span>
-<span id="318">318</span>
-<span id="319">319</span>
-<span id="320">320</span>
-<span id="321">321</span>
-<span id="322">322</span>
-<span id="323">323</span>
-<span id="324">324</span>
-<span id="325">325</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">missing_docs</span>)]</span>
 <span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_root_url</span> <span class="op">=</span> <span class="string">&quot;http://haimgel.github.io/ddc-macos-rs/&quot;</span>)]</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">iokit</span>::<span class="ident">display</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">iokit</span>::<span class="ident">io2c_interface</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">iokit</span>::<span class="ident">wrappers</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">core_foundation</span>::<span class="ident">base</span>::{<span class="ident">kCFAllocatorDefault</span>, <span class="ident">CFType</span>, <span class="ident">TCFType</span>};
 <span class="kw">use</span> <span class="ident">core_foundation</span>::<span class="ident">dictionary</span>::<span class="ident">CFDictionary</span>;
 <span class="kw">use</span> <span class="ident">core_foundation</span>::<span class="ident">number</span>::<span class="ident">CFNumber</span>;
@@ -338,14 +304,9 @@
     <span class="ident">Command</span>, <span class="ident">CommandResult</span>, <span class="ident">DdcCommand</span>, <span class="ident">DdcCommandMarker</span>, <span class="ident">DdcHost</span>, <span class="ident">ErrorCode</span>, <span class="ident">I2C_ADDRESS_DDC_CI</span>, <span class="ident">SUB_ADDRESS_DDC_CI</span>,
 };
 <span class="kw">use</span> <span class="ident">io_kit_sys</span>::<span class="ident">ret</span>::<span class="ident">kIOReturnSuccess</span>;
-<span class="kw">use</span> <span class="ident">io_kit_sys</span>::<span class="ident">types</span>::{<span class="ident">io_iterator_t</span>, <span class="ident">io_service_t</span>, <span class="ident">kMillisecondScale</span>, <span class="ident">IOItemCount</span>};
-<span class="kw">use</span> <span class="ident">io_kit_sys</span>::{
-    <span class="ident">kIOMasterPortDefault</span>, <span class="ident">IOIteratorNext</span>, <span class="ident">IOObjectRelease</span>, <span class="ident">IOObjectRetain</span>, <span class="ident">IORegistryEntryCreateCFProperties</span>,
-    <span class="ident">IOServiceGetMatchingServices</span>, <span class="ident">IOServiceMatching</span>, <span class="ident">IOServiceNameMatching</span>,
-};
+<span class="kw">use</span> <span class="ident">io_kit_sys</span>::<span class="ident">types</span>::{<span class="ident">io_service_t</span>, <span class="ident">kMillisecondScale</span>, <span class="ident">IOItemCount</span>};
+<span class="kw">use</span> <span class="ident">io_kit_sys</span>::<span class="ident">IORegistryEntryCreateCFProperties</span>;
 <span class="kw">use</span> <span class="ident">mach</span>::<span class="ident">kern_return</span>::{<span class="ident">kern_return_t</span>, <span class="ident">KERN_FAILURE</span>};
-<span class="kw">use</span> <span class="ident">mach</span>::<span class="ident">port</span>::<span class="ident">MACH_PORT_NULL</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">os</span>::<span class="ident">raw</span>::<span class="ident">c_char</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fmt</span>, <span class="ident">iter</span>};
 
 <span class="doccomment">/// An error that can occur during DDC/CI communication with a monitor</span>
@@ -360,11 +321,17 @@
 }
 
 <span class="kw">fn</span> <span class="ident">verify_io</span>(<span class="ident">result</span>: <span class="ident">kern_return_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
-    <span class="kw">return</span> <span class="kw">if</span> <span class="ident">result</span> <span class="op">=</span><span class="op">=</span> <span class="ident">kIOReturnSuccess</span> {
+    <span class="kw">if</span> <span class="ident">result</span> <span class="op">=</span><span class="op">=</span> <span class="ident">kIOReturnSuccess</span> {
         <span class="prelude-val">Ok</span>(())
     } <span class="kw">else</span> {
         <span class="prelude-val">Err</span>(<span class="ident">Error</span>::<span class="ident">Io</span>(<span class="ident">result</span>))
-    };
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">Error</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Error</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">error</span>: <span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">Error</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident">Error</span>::<span class="ident">Io</span>(<span class="ident">error</span>.<span class="ident">raw_os_error</span>().<span class="ident">unwrap_or</span>(<span class="ident">KERN_FAILURE</span>))
+    }
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">ErrorCode</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Error</span> {
@@ -383,15 +350,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Monitor</span> {
     <span class="ident">monitor</span>: <span class="ident">CGDisplay</span>,
-    <span class="ident">frame_buffer</span>: <span class="ident">io_service_t</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">Monitor</span> {
-    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
-        <span class="kw">unsafe</span> {
-            <span class="ident">IOObjectRelease</span>(<span class="self">self</span>.<span class="ident">frame_buffer</span>);
-        }
-    }
+    <span class="ident">frame_buffer</span>: <span class="ident">IoObject</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Display</span> <span class="kw">for</span> <span class="ident">Monitor</span> {
@@ -402,7 +361,7 @@
 
 <span class="kw">impl</span> <span class="ident">Monitor</span> {
     <span class="doccomment">/// Create a new monitor from the specified handle.</span>
-    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">monitor</span>: <span class="ident">CGDisplay</span>, <span class="ident">frame_buffer</span>: <span class="ident">io_service_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">monitor</span>: <span class="ident">CGDisplay</span>, <span class="ident">frame_buffer</span>: <span class="ident">IoObject</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="ident">Monitor</span> { <span class="ident">monitor</span>, <span class="ident">frame_buffer</span> }
     }
 
@@ -410,7 +369,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">enumerate</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std</span>::<span class="ident">result</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">displays</span> <span class="op">=</span> <span class="ident">CGDisplay</span>::<span class="ident">active_displays</span>()
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">Error</span>::<span class="ident">from</span>(<span class="ident">x</span>))<span class="question-mark">?</span>
+                .<span class="ident">map_err</span>(<span class="ident">Error</span>::<span class="ident">from</span>)<span class="question-mark">?</span>
                 .<span class="ident">into_iter</span>()
                 .<span class="ident">map</span>(<span class="op">|</span><span class="ident">display_id</span><span class="op">|</span> {
                     <span class="kw">let</span> <span class="ident">display</span> <span class="op">=</span> <span class="ident">CGDisplay</span>::<span class="ident">new</span>(<span class="ident">display_id</span>);
@@ -440,7 +399,7 @@
 
     <span class="doccomment">/// Product name for this monitor.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">product_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">display_info_dict</span>(<span class="self">self</span>.<span class="ident">frame_buffer</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">display_info_dict</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">frame_buffer</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">display_product_name_key</span> <span class="op">=</span> <span class="ident">CFString</span>::<span class="ident">from_static_string</span>(<span class="string">&quot;DisplayProductName&quot;</span>);
         <span class="kw">let</span> <span class="ident">display_product_names_dict</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">find</span>(<span class="kw-2">&amp;</span><span class="ident">display_product_name_key</span>)<span class="question-mark">?</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="ident">CFDictionary</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">localized_product_names</span>) <span class="op">=</span> <span class="ident">display_product_names_dict</span>.<span class="ident">get_keys_and_values</span>();
@@ -454,18 +413,18 @@
         <span class="self">self</span>.<span class="ident">monitor</span>
     }
 
-    <span class="kw">fn</span> <span class="ident">display_info_dict</span>(<span class="ident">frame_buffer</span>: <span class="ident">io_service_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">CFDictionary</span><span class="op">&lt;</span><span class="ident">CFString</span>, <span class="ident">CFType</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">display_info_dict</span>(<span class="ident">frame_buffer</span>: <span class="kw-2">&amp;</span><span class="ident">IoObject</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">CFDictionary</span><span class="op">&lt;</span><span class="ident">CFString</span>, <span class="ident">CFType</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">unsafe</span> {
-            <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">IODisplayCreateInfoDictionary</span>(<span class="ident">frame_buffer</span>, <span class="ident">kIODisplayOnlyPreferredName</span>).<span class="ident">as_ref</span>()<span class="question-mark">?</span>;
-            <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">CFDictionary</span>::<span class="op">&lt;</span><span class="ident">CFString</span>, <span class="ident">CFType</span><span class="op">&gt;</span>::<span class="ident">wrap_under_create_rule</span>(<span class="ident">info</span>));
+            <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">IODisplayCreateInfoDictionary</span>(<span class="ident">frame_buffer</span>.<span class="ident">into</span>(), <span class="ident">kIODisplayOnlyPreferredName</span>).<span class="ident">as_ref</span>()<span class="question-mark">?</span>;
+            <span class="prelude-val">Some</span>(<span class="ident">CFDictionary</span>::<span class="op">&lt;</span><span class="ident">CFString</span>, <span class="ident">CFType</span><span class="op">&gt;</span>::<span class="ident">wrap_under_create_rule</span>(<span class="ident">info</span>))
         }
     }
 
     <span class="doccomment">/// Finds a framebuffer that matches display, returns a properly formatted *unique* display name</span>
-    <span class="kw">fn</span> <span class="ident">framebuffer_port_matches_display</span>(<span class="ident">port</span>: <span class="ident">io_service_t</span>, <span class="ident">display</span>: <span class="ident">CGDisplay</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">framebuffer_port_matches_display</span>(<span class="ident">port</span>: <span class="kw-2">&amp;</span><span class="ident">IoObject</span>, <span class="ident">display</span>: <span class="ident">CGDisplay</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bus_count</span>: <span class="ident">IOItemCount</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="kw">unsafe</span> {
-            <span class="ident">IOFBGetI2CInterfaceCount</span>(<span class="ident">port</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">bus_count</span>);
+            <span class="ident">IOFBGetI2CInterfaceCount</span>(<span class="ident">port</span>.<span class="ident">into</span>(), <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">bus_count</span>);
         }
         <span class="kw">if</span> <span class="ident">bus_count</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
             <span class="kw">return</span> <span class="prelude-val">None</span>;
@@ -492,95 +451,66 @@
             <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">display_product</span> <span class="op">=</span><span class="op">=</span> <span class="ident">display</span>.<span class="ident">model_number</span>()
             <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">display_serial</span> <span class="op">=</span><span class="op">=</span> <span class="ident">display</span>.<span class="ident">serial_number</span>()
         {
-            <span class="kw">return</span> <span class="prelude-val">Some</span>(());
+            <span class="prelude-val">Some</span>(())
+        } <span class="kw">else</span> {
+            <span class="prelude-val">None</span>
         }
-        <span class="kw">return</span> <span class="prelude-val">None</span>;
     }
 
     <span class="comment">// Gets the framebuffer port</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">get_io_framebuffer_port</span>(<span class="ident">display</span>: <span class="ident">CGDisplay</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">io_service_t</span><span class="op">&gt;</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">get_io_framebuffer_port</span>(<span class="ident">display</span>: <span class="ident">CGDisplay</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">IoObject</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="ident">display</span>.<span class="ident">is_builtin</span>() {
             <span class="kw">return</span> <span class="prelude-val">None</span>;
         }
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">iter</span>: <span class="ident">io_iterator_t</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">let</span> <span class="ident">io_framebuffer</span> <span class="op">=</span> <span class="string">b&quot;IOFramebuffer\0&quot;</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_char</span>;
-
-        <span class="kw">if</span> <span class="ident">IOServiceGetMatchingServices</span>(<span class="ident">kIOMasterPortDefault</span>, <span class="ident">IOServiceMatching</span>(<span class="ident">io_framebuffer</span>), <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">iter</span>)
-            <span class="op">=</span><span class="op">=</span> <span class="ident">kIOReturnSuccess</span>
-        {
-            <span class="macro">defer</span><span class="macro">!</span> { <span class="ident">IOObjectRelease</span>(<span class="ident">iter</span>); };
-
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">serv</span>: <span class="ident">io_service_t</span>;
-            <span class="kw">while</span> (<span class="ident">serv</span> <span class="op">=</span> <span class="ident">IOIteratorNext</span>(<span class="ident">iter</span>), <span class="ident">serv</span>).<span class="number">1</span> <span class="op">!</span><span class="op">=</span> <span class="ident">MACH_PORT_NULL</span> {
-                <span class="macro">defer</span><span class="macro">!</span> { <span class="ident">IOObjectRelease</span>(<span class="ident">serv</span>); };
-
-                <span class="kw">if</span> <span class="self">Self</span>::<span class="ident">framebuffer_port_matches_display</span>(<span class="ident">serv</span>, <span class="ident">display</span>).<span class="ident">is_some</span>() {
-                    <span class="ident">IOObjectRetain</span>(<span class="ident">serv</span>);
-                    <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">serv</span>);
-                }
-            }
-        }
-        <span class="kw">return</span> <span class="prelude-val">None</span>;
+        <span class="ident">IoIterator</span>::<span class="ident">for_services</span>(<span class="string">&quot;IOFramebuffer&quot;</span>)<span class="question-mark">?</span>
+            .<span class="ident">find</span>(<span class="op">|</span><span class="ident">framebuffer</span><span class="op">|</span> <span class="self">Self</span>::<span class="ident">framebuffer_port_matches_display</span>(<span class="ident">framebuffer</span>, <span class="ident">display</span>).<span class="ident">is_some</span>())
     }
 
     <span class="doccomment">/// Get supported I2C / DDC transaction types</span>
     <span class="doccomment">/// DDCciReply is what we want, but Simple will also work</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">get_supported_transaction_type</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">iter</span>: <span class="ident">io_iterator_t</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">io_service</span>: <span class="ident">io_service_t</span>;
-
         <span class="kw">let</span> <span class="ident">transaction_types_key</span> <span class="op">=</span> <span class="ident">CFString</span>::<span class="ident">from_static_string</span>(<span class="string">&quot;IOI2CTransactionTypes&quot;</span>);
-        <span class="kw">let</span> <span class="ident">framebuffer_interface_name</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CStr</span>::<span class="ident">from_bytes_with_nul_unchecked</span>(<span class="string">b&quot;IOFramebufferI2CInterface\0&quot;</span>);
 
-        <span class="kw">if</span> <span class="ident">IOServiceGetMatchingServices</span>(
-            <span class="ident">kIOMasterPortDefault</span>,
-            <span class="ident">IOServiceNameMatching</span>(<span class="ident">framebuffer_interface_name</span>.<span class="ident">as_ptr</span>()),
-            <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">iter</span>,
-        ) <span class="op">=</span><span class="op">=</span> <span class="ident">kIOReturnSuccess</span>
-        {
-            <span class="macro">defer</span><span class="macro">!</span> { <span class="ident">IOObjectRelease</span>(<span class="ident">iter</span>); };
-            <span class="kw">while</span> (<span class="ident">io_service</span> <span class="op">=</span> <span class="ident">IOIteratorNext</span>(<span class="ident">iter</span>), <span class="ident">io_service</span>).<span class="number">1</span> <span class="op">!</span><span class="op">=</span> <span class="ident">MACH_PORT_NULL</span> {
-                <span class="macro">defer</span><span class="macro">!</span> { <span class="ident">IOObjectRelease</span>(<span class="ident">io_service</span>); };
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">service_properties</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">ptr</span>::<span class="ident">null_mut</span>();
-
-                <span class="kw">if</span> <span class="ident">IORegistryEntryCreateCFProperties</span>(<span class="ident">io_service</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">service_properties</span>, <span class="ident">kCFAllocatorDefault</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="number">0</span>)
-                    <span class="op">=</span><span class="op">=</span> <span class="ident">kIOReturnSuccess</span>
-                {
-                    <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">CFDictionary</span>::<span class="op">&lt;</span><span class="ident">CFString</span>, <span class="ident">CFType</span><span class="op">&gt;</span>::<span class="ident">wrap_under_create_rule</span>(<span class="ident">service_properties</span> <span class="kw">as</span> <span class="kw">_</span>);
-                    <span class="kw">let</span> <span class="ident">transaction_types</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">find</span>(<span class="kw-2">&amp;</span><span class="ident">transaction_types_key</span>)<span class="question-mark">?</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="ident">CFNumber</span><span class="op">&gt;</span>()<span class="question-mark">?</span>.<span class="ident">to_i64</span>()<span class="question-mark">?</span>;
-                    <span class="kw">if</span> ((<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">kIOI2CDDCciReplyTransactionType</span>) <span class="op">&amp;</span> <span class="ident">transaction_types</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-                        <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">kIOI2CDDCciReplyTransactionType</span>);
-                    } <span class="kw">else</span> <span class="kw">if</span> ((<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">kIOI2CSimpleTransactionType</span>) <span class="op">&amp;</span> <span class="ident">transaction_types</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-                        <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">kIOI2CSimpleTransactionType</span>);
-                    }
+        <span class="kw">for</span> <span class="ident">io_service</span> <span class="kw">in</span> <span class="ident">IoIterator</span>::<span class="ident">for_service_names</span>(<span class="string">&quot;IOFramebufferI2CInterface&quot;</span>)<span class="question-mark">?</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">service_properties</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">ptr</span>::<span class="ident">null_mut</span>();
+            <span class="kw">if</span> <span class="ident">IORegistryEntryCreateCFProperties</span>(
+                (<span class="kw-2">&amp;</span><span class="ident">io_service</span>).<span class="ident">into</span>(),
+                <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">service_properties</span>,
+                <span class="ident">kCFAllocatorDefault</span> <span class="kw">as</span> <span class="kw">_</span>,
+                <span class="number">0</span>,
+            ) <span class="op">=</span><span class="op">=</span> <span class="ident">kIOReturnSuccess</span>
+            {
+                <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">CFDictionary</span>::<span class="op">&lt;</span><span class="ident">CFString</span>, <span class="ident">CFType</span><span class="op">&gt;</span>::<span class="ident">wrap_under_create_rule</span>(<span class="ident">service_properties</span> <span class="kw">as</span> <span class="kw">_</span>);
+                <span class="kw">let</span> <span class="ident">transaction_types</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">find</span>(<span class="kw-2">&amp;</span><span class="ident">transaction_types_key</span>)<span class="question-mark">?</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="ident">CFNumber</span><span class="op">&gt;</span>()<span class="question-mark">?</span>.<span class="ident">to_i64</span>()<span class="question-mark">?</span>;
+                <span class="kw">if</span> ((<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">kIOI2CDDCciReplyTransactionType</span>) <span class="op">&amp;</span> <span class="ident">transaction_types</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+                    <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">kIOI2CDDCciReplyTransactionType</span>);
+                } <span class="kw">else</span> <span class="kw">if</span> ((<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">kIOI2CSimpleTransactionType</span>) <span class="op">&amp;</span> <span class="ident">transaction_types</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+                    <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">kIOI2CSimpleTransactionType</span>);
                 }
             }
         }
-        <span class="kw">return</span> <span class="prelude-val">None</span>;
+        <span class="prelude-val">None</span>
     }
 
     <span class="doccomment">/// send an I2C request to a display</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">IOI2CRequest</span>, <span class="ident">post_request_delay</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bus_count</span>: <span class="ident">io_service_t</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">result</span>: <span class="ident">kern_return_t</span> <span class="op">=</span> <span class="ident">KERN_FAILURE</span>;
-        <span class="ident">verify_io</span>(<span class="ident">IOFBGetI2CInterfaceCount</span>(<span class="self">self</span>.<span class="ident">frame_buffer</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">bus_count</span>))<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bus_count</span> <span class="op">=</span> <span class="number">0</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">result</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> <span class="op">=</span> <span class="prelude-val">Err</span>(<span class="ident">Error</span>::<span class="ident">Io</span>(<span class="ident">KERN_FAILURE</span>));
+        <span class="ident">verify_io</span>(<span class="ident">IOFBGetI2CInterfaceCount</span>((<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">frame_buffer</span>).<span class="ident">into</span>(), <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">bus_count</span>))<span class="question-mark">?</span>;
         <span class="kw">for</span> <span class="ident">bus</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">bus_count</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">interface</span>: <span class="ident">io_service_t</span> <span class="op">=</span> <span class="number">0</span>;
-            <span class="kw">if</span> <span class="ident">IOFBCopyI2CInterfaceForBus</span>(<span class="self">self</span>.<span class="ident">frame_buffer</span>, <span class="ident">bus</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">interface</span>) <span class="op">=</span><span class="op">=</span> <span class="ident">kIOReturnSuccess</span> {
-                <span class="macro">defer</span><span class="macro">!</span> { <span class="ident">IOObjectRelease</span>(<span class="ident">interface</span>); };
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">connect</span>: <span class="ident">IOI2CConnectRef</span> <span class="op">=</span> <span class="number">0</span>;
-                <span class="kw">if</span> <span class="ident">IOI2CInterfaceOpen</span>(<span class="ident">interface</span>, <span class="number">0</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">connect</span>) <span class="op">=</span><span class="op">=</span> <span class="ident">kIOReturnSuccess</span> {
-                    <span class="macro">defer</span><span class="macro">!</span> { <span class="ident">IOI2CInterfaceClose</span>(<span class="ident">connect</span>, <span class="number">0</span>); };
-                    <span class="kw">if</span> <span class="ident">IOI2CSendRequest</span>(<span class="ident">connect</span>, <span class="number">0</span>, <span class="ident">request</span>) <span class="op">=</span><span class="op">=</span> <span class="ident">kIOReturnSuccess</span> {
-                        <span class="ident">result</span> <span class="op">=</span> <span class="ident">request</span>.<span class="ident">result</span>;
-                        <span class="kw">break</span>;
-                    }
+            <span class="kw">if</span> <span class="ident">IOFBCopyI2CInterfaceForBus</span>((<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">frame_buffer</span>).<span class="ident">into</span>(), <span class="ident">bus</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">interface</span>) <span class="op">=</span><span class="op">=</span> <span class="ident">kIOReturnSuccess</span> {
+                <span class="kw">let</span> <span class="ident">interface</span> <span class="op">=</span> <span class="ident">IoObject</span>::<span class="ident">from</span>(<span class="ident">interface</span>);
+                <span class="ident">result</span> <span class="op">=</span> <span class="ident">IoI2CInterfaceConnection</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">interface</span>)
+                    .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">connection</span><span class="op">|</span> <span class="ident">connection</span>.<span class="ident">send_request</span>(<span class="ident">request</span>))
+                    .<span class="ident">map_err</span>(<span class="ident">From</span>::<span class="ident">from</span>);
+                <span class="kw">if</span> <span class="ident">result</span>.<span class="ident">is_ok</span>() {
+                    <span class="kw">break</span>;
                 }
             }
         }
         <span class="ident">std</span>::<span class="ident">thread</span>::<span class="ident">sleep</span>(<span class="ident">std</span>::<span class="ident">time</span>::<span class="ident">Duration</span>::<span class="ident">from_millis</span>(<span class="ident">post_request_delay</span> <span class="kw">as</span> <span class="ident">u64</span>));
-        <span class="ident">verify_io</span>(<span class="ident">result</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(())
+        <span class="ident">result</span>
     }
 
     <span class="kw">fn</span> <span class="ident">get_response_transaction_type</span><span class="op">&lt;</span><span class="ident">C</span>: <span class="ident">Command</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_c</span>: <span class="ident">C</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
