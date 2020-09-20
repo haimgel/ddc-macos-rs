@@ -30,11 +30,11 @@ pub enum Error {
 }
 
 fn verify_io(result: kern_return_t) -> Result<(), Error> {
-    return if result == kIOReturnSuccess {
+    if result == kIOReturnSuccess {
         Ok(())
     } else {
         Err(Error::Io(result))
-    };
+    }
 }
 
 impl From<std::io::Error> for Error {
@@ -78,7 +78,7 @@ impl Monitor {
     pub fn enumerate() -> std::result::Result<Vec<Self>, Error> {
         unsafe {
             let displays = CGDisplay::active_displays()
-                .map_err(|x| Error::from(x))?
+                .map_err(Error::from)?
                 .into_iter()
                 .map(|display_id| {
                     let display = CGDisplay::new(display_id);
@@ -125,7 +125,7 @@ impl Monitor {
     fn display_info_dict(frame_buffer: &IoObject) -> Option<CFDictionary<CFString, CFType>> {
         unsafe {
             let info = IODisplayCreateInfoDictionary(frame_buffer.into(), kIODisplayOnlyPreferredName).as_ref()?;
-            return Some(CFDictionary::<CFString, CFType>::wrap_under_create_rule(info));
+            Some(CFDictionary::<CFString, CFType>::wrap_under_create_rule(info))
         }
     }
 
@@ -160,9 +160,10 @@ impl Monitor {
             && display_product == display.model_number()
             && display_serial == display.serial_number()
         {
-            return Some(());
+            Some(())
+        } else {
+            None
         }
-        return None;
     }
 
     // Gets the framebuffer port
@@ -197,7 +198,7 @@ impl Monitor {
                 }
             }
         }
-        return None;
+        None
     }
 
     /// send an I2C request to a display
