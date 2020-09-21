@@ -5,6 +5,7 @@ use crate::iokit::display::*;
 use crate::iokit::io2c_interface::*;
 use crate::iokit::wrappers::*;
 use core_foundation::base::{kCFAllocatorDefault, CFType, TCFType};
+use core_foundation::data::CFData;
 use core_foundation::dictionary::CFDictionary;
 use core_foundation::number::CFNumber;
 use core_foundation::string::{CFString, CFStringRef};
@@ -119,6 +120,14 @@ impl Monitor {
         localized_product_names
             .first()
             .map(|name| unsafe { CFString::wrap_under_get_rule(*name as CFStringRef) }.to_string())
+    }
+
+    /// Returns EDID for this display as raw bytes data
+    pub fn edid(&self) -> Option<Vec<u8>> {
+        let info = Self::display_info_dict(&self.frame_buffer)?;
+        let display_product_name_key = CFString::from_static_string("IODisplayEDIDOriginal");
+        let edid_data = info.find(&display_product_name_key)?.downcast::<CFData>()?;
+        Some(edid_data.bytes().into())
     }
 
     /// CoreGraphics display handle for this monitor
