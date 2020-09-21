@@ -17,15 +17,19 @@ use io_kit_sys::types::{io_service_t, kMillisecondScale, IOItemCount};
 use io_kit_sys::IORegistryEntryCreateCFProperties;
 use mach::kern_return::{kern_return_t, KERN_FAILURE};
 use std::{fmt, iter};
+use thiserror::Error;
 
 /// An error that can occur during DDC/CI communication with a monitor
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum Error {
     /// Core Graphics errors
+    #[error("Core Graphics error: {0}")]
     CoreGraphics(CGError),
     /// Kernel I/O errors
+    #[error("MacOS kernel I/O error: {0}")]
     Io(kern_return_t),
     /// DDC/CI errors
+    #[error("DDC/CI error: {0}")]
     Ddc(ErrorCode),
 }
 

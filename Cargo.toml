@@ -18,6 +18,7 @@ core-graphics = "^0.22.1"
 ddc = "^0.2.0"
 io-kit-sys = "0.1.0"
 mach = "^0.3.2"
+thiserror = "^1"
 
 [badges]
 maintenance = { status = "actively-developed" }
