@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["ddc_macos"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/std/error/trait.Error.html\" title=\"trait std::error::Error\">Error</a> for <a class=\"enum\" href=\"ddc_macos/enum.Error.html\" title=\"enum ddc_macos::Error\">Error</a>","synthetic":false,"types":["ddc_macos::monitor::Error"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
