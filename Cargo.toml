@@ -1,6 +1,6 @@
 [package]
 name = "ddc-macos"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Haim Gelfenbeyn <haim@g8n.me>"]
 edition = "2018"
 description = "DDC/CI monitor control on MacOS"
@@ -13,7 +13,7 @@ categories = ["hardware-support", "os::macos-apis"]
 
 [dependencies]
 core-foundation = "^0.9.1"
-core-foundation-sys = ">=0.8.1"
+core-foundation-sys = "^0.8.1"
 core-graphics = "^0.22.1"
 ddc = "^0.2.0"
 io-kit-sys = "0.1.0"
