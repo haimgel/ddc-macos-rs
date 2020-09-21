@@ -274,20 +274,24 @@ impl DdcCommand for Monitor {
             self.send_request(&mut request, C::DELAY_COMMAND_MS as u32)?;
         }
 
-        let reply_length = (reply_data[1] & 0x7f) as usize;
-        if reply_length + 2 >= reply_data.len() {
-            return Err(Error::Ddc(ErrorCode::InvalidLength));
-        }
+        if request.replyTransactionType == kIOI2CNoTransactionType {
+            ddc::CommandResult::decode(&[0u8; 0]).map_err(From::from)
+        } else {
+            let reply_length = (reply_data[1] & 0x7f) as usize;
+            if reply_length + 2 >= reply_data.len() {
+                return Err(Error::Ddc(ErrorCode::InvalidLength));
+            }
 
-        let checksum = Self::checksum(
-            iter::once(request.replyAddress as u8)
-                .chain(iter::once(SUB_ADDRESS_DDC_CI))
-                .chain(reply_data[1..2 + reply_length].iter().cloned()),
-        );
-        if reply_data[2 + reply_length] != checksum {
-            return Err(Error::Ddc(ErrorCode::InvalidChecksum));
+            let checksum = Self::checksum(
+                iter::once(request.replyAddress as u8)
+                    .chain(iter::once(SUB_ADDRESS_DDC_CI))
+                    .chain(reply_data[1..2 + reply_length].iter().cloned()),
+            );
+            if reply_data[2 + reply_length] != checksum {
+                return Err(Error::Ddc(ErrorCode::InvalidChecksum));
+            }
+            ddc::CommandResult::decode(&reply_data[2..reply_length + 2]).map_err(From::from)
         }
-        ddc::CommandResult::decode(&reply_data[2..reply_length + 2]).map_err(From::from)
     }
 }
 
