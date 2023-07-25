@@ -7,6 +7,11 @@
 
 `ddc-macos` implements the [`ddc`](https://crates.io/crates/ddc) traits for MacOS.
 
+## Examples
+You can list external monitors and their description using the provided example using:
+
+`cargo run --example list`
+
 ## [Documentation][docs]
 
 See the [documentation][docs] for up to date information.
