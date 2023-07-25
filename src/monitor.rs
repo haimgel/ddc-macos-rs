@@ -1,5 +1,4 @@
 #![deny(missing_docs)]
-#![doc(html_root_url = "http://haimgel.github.io/ddc-macos-rs/")]
 
 use crate::iokit::display::*;
 use crate::iokit::io2c_interface::*;
@@ -85,12 +84,12 @@ impl Monitor {
             let displays = CGDisplay::active_displays()
                 .map_err(Error::from)?
                 .into_iter()
-                .map(|display_id| {
+                .filter_map(|display_id| {
                     let display = CGDisplay::new(display_id);
                     let frame_buffer = Self::get_io_framebuffer_port(display)?;
                     Some(Self::new(display, frame_buffer))
-                })
-                .filter_map(|x| x)
+                    })
+
                 .collect();
             Ok(displays)
         }

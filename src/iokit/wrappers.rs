@@ -33,9 +33,9 @@ impl From<io_object_t> for IoObject {
     }
 }
 
-impl Into<io_object_t> for &IoObject {
-    fn into(self) -> io_object_t {
-        self.0
+impl From<&IoObject> for io_object_t {
+    fn from(val: &IoObject) -> io_object_t {
+        val.0
     }
 }
 
@@ -66,7 +66,7 @@ impl IoIterator {
         unsafe {
             kern_try!(IOServiceGetMatchingServices(kIOMasterPortDefault, dict as _, &mut iter));
         }
-        Ok(Self { 0: iter })
+        Ok(Self(iter))
     }
 }
 
