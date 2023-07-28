@@ -79,7 +79,7 @@ impl Monitor {
     }
 
     /// Enumerate all connected physical monitors.
-    pub fn enumerate() -> std::result::Result<Vec<Self>, Error> {
+    pub fn enumerate() -> Result<Vec<Self>, Error> {
         unsafe {
             let displays = CGDisplay::active_displays()
                 .map_err(Error::from)?
@@ -248,7 +248,7 @@ impl DdcHost for Monitor {
 }
 
 impl DdcCommand for Monitor {
-    fn execute<C: Command>(&mut self, command: C) -> std::result::Result<<C as Command>::Ok, Self::Error> {
+    fn execute<C: Command>(&mut self, command: C) -> Result<<C as Command>::Ok, Self::Error> {
         // Encode the command into request_data buffer
         // 36 bytes is an arbitrary number, larger than any I2C command length.
         // Cannot use [0u8; C::MAX_LEN] (associated constants do not work here)
@@ -283,7 +283,7 @@ impl DdcCommand for Monitor {
         }
 
         if request.replyTransactionType == kIOI2CNoTransactionType {
-            ddc::CommandResult::decode(&[0u8; 0]).map_err(From::from)
+            CommandResult::decode(&[0u8; 0]).map_err(From::from)
         } else {
             let reply_length = (reply_data[1] & 0x7f) as usize;
             if reply_length + 2 >= reply_data.len() {
@@ -298,7 +298,7 @@ impl DdcCommand for Monitor {
             if reply_data[2 + reply_length] != checksum {
                 return Err(Error::Ddc(ErrorCode::InvalidChecksum));
             }
-            ddc::CommandResult::decode(&reply_data[2..reply_length + 2]).map_err(From::from)
+            CommandResult::decode(&reply_data[2..reply_length + 2]).map_err(From::from)
         }
     }
 }
