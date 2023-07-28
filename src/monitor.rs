@@ -78,39 +78,40 @@ impl Monitor {
         Monitor { monitor, frame_buffer }
     }
 
-    /// Enumerate all connected physical monitors.
+    /// Enumerate all connected physical monitors returning [Vec<Monitor>]
     pub fn enumerate() -> Result<Vec<Self>, Error> {
-        unsafe {
-            let displays = CGDisplay::active_displays()
-                .map_err(Error::from)?
-                .into_iter()
-                .filter_map(|display_id| {
-                    let display = CGDisplay::new(display_id);
-                    let frame_buffer = Self::get_io_framebuffer_port(display)?;
-                    Some(Self::new(display, frame_buffer))
-                    })
-
-                .collect();
-            Ok(displays)
-        }
+        let monitors = CGDisplay::active_displays()
+            .map_err(Error::from)?
+            .into_iter()
+            .filter_map(|display_id| {
+                let display = CGDisplay::new(display_id);
+                let frame_buffer = Self::get_io_framebuffer_port(display)?;
+                Some(Self::new(display, frame_buffer))
+                })
+            .collect();
+        Ok(monitors)
     }
 
-    /// Physical monitor description string.
+    /// Physical monitor description string. If it cannot get the product's name it will use
+    /// the vendor number and model number to form a description
     pub fn description(&self) -> String {
-        let name = self.product_name().unwrap_or(format!(
+        self.product_name().unwrap_or(format!(
             "{:04x}:{:04x}",
             self.monitor.vendor_number(),
             self.monitor.model_number()
-        ));
+        ))
+    }
+
+    /// Serial number for this [Monitor]
+    pub fn serial_number(&self) -> Option<String> {
         let serial = self.monitor.serial_number();
-        if serial != 0 {
-            format!("{} S/N {}", name, serial)
-        } else {
-            name
+        match serial {
+            0 => None,
+            _ => Some(format!("{}", serial))
         }
     }
 
-    /// Product name for this monitor.
+    /// Product name for this [Monitor], if available
     pub fn product_name(&self) -> Option<String> {
         let info = Self::display_info_dict(&self.frame_buffer)?;
         let display_product_name_key = CFString::from_static_string("DisplayProductName");
@@ -121,7 +122,7 @@ impl Monitor {
             .map(|name| unsafe { CFString::wrap_under_get_rule(*name as CFStringRef) }.to_string())
     }
 
-    /// Returns EDID for this display as raw bytes data
+    /// Returns Extended display identification data (EDID) for this [Monitor] as raw bytes data
     pub fn edid(&self) -> Option<Vec<u8>> {
         let info = Self::display_info_dict(&self.frame_buffer)?;
         let display_product_name_key = CFString::from_static_string("IODisplayEDIDOriginal");
@@ -141,7 +142,7 @@ impl Monitor {
         }
     }
 
-    /// Finds a framebuffer that matches display, returns a properly formatted *unique* display name
+    // Finds a framebuffer that matches display, returns a properly formatted *unique* display name
     fn framebuffer_port_matches_display(port: &IoObject, display: CGDisplay) -> Option<()> {
         let mut bus_count: IOItemCount = 0;
         unsafe {
@@ -179,7 +180,7 @@ impl Monitor {
     }
 
     // Gets the framebuffer port
-    unsafe fn get_io_framebuffer_port(display: CGDisplay) -> Option<IoObject> {
+    fn get_io_framebuffer_port(display: CGDisplay) -> Option<IoObject> {
         if display.is_builtin() {
             return None;
         }

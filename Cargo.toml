@@ -19,6 +19,7 @@ ddc = "^0.2.0"
 io-kit-sys = "0.1.0"
 mach = "^0.3.2"
 thiserror = "^1"
+edid = "0.3.0"
 
 [badges]
 maintenance = { status = "actively-developed" }
