@@ -1,9 +1,9 @@
 [package]
 name = "ddc-macos"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Haim Gelfenbeyn <haim@g8n.me>"]
 description = "DDC/CI monitor control on MacOS"
-documentation = "http://haimgel.github.io/ddc-macos-rs/ddc_macos"
+documentation = "https://haimgel.github.io/ddc-macos-rs/ddc_macos"
 readme = "README.md"
 repository = "https://github.com/haimgel/ddc-macos-rs"
 license = "MIT"
@@ -16,7 +16,7 @@ core-foundation = "0.9"
 core-foundation-sys = "0.8"
 core-graphics = "0.23"
 ddc = "0.2"
-io-kit-sys = "0.3"
+io-kit-sys = "0.4"
 mach = "0.3"
 thiserror = "1"
 
