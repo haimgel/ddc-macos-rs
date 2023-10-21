@@ -394,7 +394,7 @@
                 <span class="kw">let </span>display = CGDisplay::new(display_id);
                 <span class="kw">let </span>frame_buffer = <span class="self">Self</span>::get_io_framebuffer_port(display)<span class="question-mark">?</span>;
                 <span class="prelude-val">Some</span>(<span class="self">Self</span>::new(display, frame_buffer))
-                })
+            })
             .collect();
         <span class="prelude-val">Ok</span>(monitors)
     }
@@ -414,7 +414,7 @@
         <span class="kw">let </span>serial = <span class="self">self</span>.monitor.serial_number();
         <span class="kw">match </span>serial {
             <span class="number">0 </span>=&gt; <span class="prelude-val">None</span>,
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, serial))
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, serial)),
         }
     }
 
