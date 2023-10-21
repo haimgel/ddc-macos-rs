@@ -1,5 +1,4 @@
 #![deny(missing_docs)]
-#![doc(html_root_url = "http://haimgel.github.io/ddc-macos-rs/")]
 
 use crate::iokit::display::*;
 use crate::iokit::io2c_interface::*;
@@ -79,39 +78,40 @@ impl Monitor {
         Monitor { monitor, frame_buffer }
     }
 
-    /// Enumerate all connected physical monitors.
-    pub fn enumerate() -> std::result::Result<Vec<Self>, Error> {
-        unsafe {
-            let displays = CGDisplay::active_displays()
-                .map_err(Error::from)?
-                .into_iter()
-                .map(|display_id| {
-                    let display = CGDisplay::new(display_id);
-                    let frame_buffer = Self::get_io_framebuffer_port(display)?;
-                    Some(Self::new(display, frame_buffer))
+    /// Enumerate all connected physical monitors returning [Vec<Monitor>]
+    pub fn enumerate() -> Result<Vec<Self>, Error> {
+        let monitors = CGDisplay::active_displays()
+            .map_err(Error::from)?
+            .into_iter()
+            .filter_map(|display_id| {
+                let display = CGDisplay::new(display_id);
+                let frame_buffer = Self::get_io_framebuffer_port(display)?;
+                Some(Self::new(display, frame_buffer))
                 })
-                .filter_map(|x| x)
-                .collect();
-            Ok(displays)
-        }
+            .collect();
+        Ok(monitors)
     }
 
-    /// Physical monitor description string.
+    /// Physical monitor description string. If it cannot get the product's name it will use
+    /// the vendor number and model number to form a description
     pub fn description(&self) -> String {
-        let name = self.product_name().unwrap_or(format!(
+        self.product_name().unwrap_or(format!(
             "{:04x}:{:04x}",
             self.monitor.vendor_number(),
             self.monitor.model_number()
-        ));
+        ))
+    }
+
+    /// Serial number for this [Monitor]
+    pub fn serial_number(&self) -> Option<String> {
         let serial = self.monitor.serial_number();
-        if serial != 0 {
-            format!("{} S/N {}", name, serial)
-        } else {
-            name
+        match serial {
+            0 => None,
+            _ => Some(format!("{}", serial))
         }
     }
 
-    /// Product name for this monitor.
+    /// Product name for this [Monitor], if available
     pub fn product_name(&self) -> Option<String> {
         let info = Self::display_info_dict(&self.frame_buffer)?;
         let display_product_name_key = CFString::from_static_string("DisplayProductName");
@@ -122,7 +122,7 @@ impl Monitor {
             .map(|name| unsafe { CFString::wrap_under_get_rule(*name as CFStringRef) }.to_string())
     }
 
-    /// Returns EDID for this display as raw bytes data
+    /// Returns Extended display identification data (EDID) for this [Monitor] as raw bytes data
     pub fn edid(&self) -> Option<Vec<u8>> {
         let info = Self::display_info_dict(&self.frame_buffer)?;
         let display_product_name_key = CFString::from_static_string("IODisplayEDIDOriginal");
@@ -142,7 +142,7 @@ impl Monitor {
         }
     }
 
-    /// Finds a framebuffer that matches display, returns a properly formatted *unique* display name
+    // Finds a framebuffer that matches display, returns a properly formatted *unique* display name
     fn framebuffer_port_matches_display(port: &IoObject, display: CGDisplay) -> Option<()> {
         let mut bus_count: IOItemCount = 0;
         unsafe {
@@ -180,7 +180,7 @@ impl Monitor {
     }
 
     // Gets the framebuffer port
-    unsafe fn get_io_framebuffer_port(display: CGDisplay) -> Option<IoObject> {
+    fn get_io_framebuffer_port(display: CGDisplay) -> Option<IoObject> {
         if display.is_builtin() {
             return None;
         }
@@ -249,7 +249,7 @@ impl DdcHost for Monitor {
 }
 
 impl DdcCommand for Monitor {
-    fn execute<C: Command>(&mut self, command: C) -> std::result::Result<<C as Command>::Ok, Self::Error> {
+    fn execute<C: Command>(&mut self, command: C) -> Result<<C as Command>::Ok, Self::Error> {
         // Encode the command into request_data buffer
         // 36 bytes is an arbitrary number, larger than any I2C command length.
         // Cannot use [0u8; C::MAX_LEN] (associated constants do not work here)
@@ -284,7 +284,7 @@ impl DdcCommand for Monitor {
         }
 
         if request.replyTransactionType == kIOI2CNoTransactionType {
-            ddc::CommandResult::decode(&[0u8; 0]).map_err(From::from)
+            CommandResult::decode(&[0u8; 0]).map_err(From::from)
         } else {
             let reply_length = (reply_data[1] & 0x7f) as usize;
             if reply_length + 2 >= reply_data.len() {
@@ -299,7 +299,7 @@ impl DdcCommand for Monitor {
             if reply_data[2 + reply_length] != checksum {
                 return Err(Error::Ddc(ErrorCode::InvalidChecksum));
             }
-            ddc::CommandResult::decode(&reply_data[2..reply_length + 2]).map_err(From::from)
+            CommandResult::decode(&reply_data[2..reply_length + 2]).map_err(From::from)
         }
     }
 }
