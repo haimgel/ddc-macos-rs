@@ -5,8 +5,7 @@ use ddc::Ddc;
 use ddc_macos::Monitor;
 
 fn main() {
-    let monitors = Monitor::enumerate()
-        .expect("Could not enumerate external monitors");
+    let monitors = Monitor::enumerate().expect("Could not enumerate external monitors");
 
     if monitors.is_empty() {
         println!("No external monitors found");

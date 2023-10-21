@@ -87,7 +87,7 @@ impl Monitor {
                 let display = CGDisplay::new(display_id);
                 let frame_buffer = Self::get_io_framebuffer_port(display)?;
                 Some(Self::new(display, frame_buffer))
-                })
+            })
             .collect();
         Ok(monitors)
     }
@@ -107,7 +107,7 @@ impl Monitor {
         let serial = self.monitor.serial_number();
         match serial {
             0 => None,
-            _ => Some(format!("{}", serial))
+            _ => Some(format!("{}", serial)),
         }
     }
 

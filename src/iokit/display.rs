@@ -1,4 +1,4 @@
-# ![allow(non_upper_case_globals,unused)]
+#![allow(non_upper_case_globals, unused)]
 
 /// Selective translation of IOKit/graphics/IOGraphicsLib.h
 use core_foundation::dictionary::CFDictionaryRef;
