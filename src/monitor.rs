@@ -1,69 +1,34 @@
 #![deny(missing_docs)]
 
-use crate::iokit::display::*;
-use crate::iokit::io2c_interface::*;
-use crate::iokit::wrappers::*;
-use core_foundation::base::{kCFAllocatorDefault, CFType, TCFType};
+use crate::arm::{IOAVService, IOAVServiceReadI2C, IOAVServiceWriteI2C};
+use crate::error::Error;
+use crate::iokit::CoreDisplay_DisplayCreateInfoDictionary;
+use crate::iokit::IoObject;
+use crate::iokit::*;
+use crate::{arm, intel};
+use core_foundation::base::{CFType, TCFType};
 use core_foundation::data::CFData;
 use core_foundation::dictionary::CFDictionary;
-use core_foundation::number::CFNumber;
 use core_foundation::string::{CFString, CFStringRef};
-use core_graphics::display::{CGDisplay, CGError};
+use core_graphics::display::CGDisplay;
 use ddc::{
     Command, CommandResult, DdcCommand, DdcCommandMarker, DdcHost, ErrorCode, I2C_ADDRESS_DDC_CI, SUB_ADDRESS_DDC_CI,
 };
-use io_kit_sys::ret::kIOReturnSuccess;
-use io_kit_sys::types::{io_service_t, kMillisecondScale, IOItemCount};
-use io_kit_sys::IORegistryEntryCreateCFProperties;
-use mach::kern_return::{kern_return_t, KERN_FAILURE};
+use io_kit_sys::types::kMillisecondScale;
 use std::{fmt, iter};
-use thiserror::Error;
 
-/// An error that can occur during DDC/CI communication with a monitor
-#[derive(Error, Debug)]
-pub enum Error {
-    /// Core Graphics errors
-    #[error("Core Graphics error: {0}")]
-    CoreGraphics(CGError),
-    /// Kernel I/O errors
-    #[error("MacOS kernel I/O error: {0}")]
-    Io(kern_return_t),
-    /// DDC/CI errors
-    #[error("DDC/CI error: {0}")]
-    Ddc(ErrorCode),
-}
-
-fn verify_io(result: kern_return_t) -> Result<(), Error> {
-    if result == kIOReturnSuccess {
-        Ok(())
-    } else {
-        Err(Error::Io(result))
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(error: std::io::Error) -> Self {
-        Error::Io(error.raw_os_error().unwrap_or(KERN_FAILURE))
-    }
-}
-
-impl From<ErrorCode> for Error {
-    fn from(error: ErrorCode) -> Self {
-        Error::Ddc(error)
-    }
-}
-
-impl From<CGError> for Error {
-    fn from(error: CGError) -> Self {
-        Error::CoreGraphics(error)
-    }
+/// DDC access method for a monitor
+#[derive(Debug)]
+enum MonitorService {
+    Intel(IoObject),
+    Arm(IOAVService),
 }
 
 /// A handle to an attached monitor that allows the use of DDC/CI operations.
 #[derive(Debug)]
 pub struct Monitor {
     monitor: CGDisplay,
-    frame_buffer: IoObject,
+    service: MonitorService,
 }
 
 impl fmt::Display for Monitor {
@@ -74,8 +39,8 @@ impl fmt::Display for Monitor {
 
 impl Monitor {
     /// Create a new monitor from the specified handle.
-    fn new(monitor: CGDisplay, frame_buffer: IoObject) -> Self {
-        Monitor { monitor, frame_buffer }
+    fn new(monitor: CGDisplay, service: MonitorService) -> Self {
+        Monitor { monitor, service }
     }
 
     /// Enumerate all connected physical monitors returning [Vec<Monitor>]
@@ -85,8 +50,13 @@ impl Monitor {
             .into_iter()
             .filter_map(|display_id| {
                 let display = CGDisplay::new(display_id);
-                let frame_buffer = Self::get_io_framebuffer_port(display)?;
-                Some(Self::new(display, frame_buffer))
+                return if let Some(service) = intel::get_io_framebuffer_port(display) {
+                    Some(Self::new(display, MonitorService::Intel(service)))
+                } else if let Ok(service) = arm::get_display_av_service(display) {
+                    Some(Self::new(display, MonitorService::Arm(service)))
+                } else {
+                    None
+                };
             })
             .collect();
         Ok(monitors)
@@ -113,7 +83,9 @@ impl Monitor {
 
     /// Product name for this [Monitor], if available
     pub fn product_name(&self) -> Option<String> {
-        let info = Self::display_info_dict(&self.frame_buffer)?;
+        let info: CFDictionary<CFString, CFType> =
+            unsafe { CFDictionary::wrap_under_create_rule(CoreDisplay_DisplayCreateInfoDictionary(self.monitor.id)) };
+
         let display_product_name_key = CFString::from_static_string("DisplayProductName");
         let display_product_names_dict = info.find(&display_product_name_key)?.downcast::<CFDictionary>()?;
         let (_, localized_product_names) = display_product_names_dict.get_keys_and_values();
@@ -124,7 +96,8 @@ impl Monitor {
 
     /// Returns Extended display identification data (EDID) for this [Monitor] as raw bytes data
     pub fn edid(&self) -> Option<Vec<u8>> {
-        let info = Self::display_info_dict(&self.frame_buffer)?;
+        let info: CFDictionary<CFString, CFType> =
+            unsafe { CFDictionary::wrap_under_create_rule(CoreDisplay_DisplayCreateInfoDictionary(self.monitor.id)) };
         let display_product_name_key = CFString::from_static_string("IODisplayEDIDOriginal");
         let edid_data = info.find(&display_product_name_key)?.downcast::<CFData>()?;
         Some(edid_data.bytes().into())
@@ -135,112 +108,113 @@ impl Monitor {
         self.monitor
     }
 
-    fn display_info_dict(frame_buffer: &IoObject) -> Option<CFDictionary<CFString, CFType>> {
-        unsafe {
-            let info = IODisplayCreateInfoDictionary(frame_buffer.into(), kIODisplayOnlyPreferredName).as_ref()?;
-            Some(CFDictionary::<CFString, CFType>::wrap_under_create_rule(info))
-        }
-    }
+    fn execute_intel<C: Command>(&mut self, command: C) -> Result<<C as Command>::Ok, crate::error::Error> {
+        if let MonitorService::Intel(service) = &self.service {
+            let request_data = Self::encode_request(&command)?;
 
-    // Finds a framebuffer that matches display, returns a properly formatted *unique* display name
-    fn framebuffer_port_matches_display(port: &IoObject, display: CGDisplay) -> Option<()> {
-        let mut bus_count: IOItemCount = 0;
-        unsafe {
-            IOFBGetI2CInterfaceCount(port.into(), &mut bus_count);
-        }
-        if bus_count == 0 {
-            return None;
-        };
+            // Allocate data for the response. 36 bytes is larger than any response
+            assert!(C::Ok::MAX_LEN <= 36);
+            let reply_data = [0u8; 36];
+            let mut request: IOI2CRequest = unsafe { std::mem::zeroed() };
 
-        let info = Self::display_info_dict(port)?;
+            request.commFlags = 0;
+            request.sendAddress = (I2C_ADDRESS_DDC_CI << 1) as u32;
+            request.sendTransactionType = kIOI2CSimpleTransactionType;
+            request.sendBuffer = &request_data as *const _ as usize;
+            request.sendBytes = request_data.len() as u32;
+            request.minReplyDelay = C::DELAY_RESPONSE_MS * kMillisecondScale as u64;
+            request.result = -1;
 
-        let display_vendor_key = CFString::from_static_string("DisplayVendorID");
-        let display_product_key = CFString::from_static_string("DisplayProductID");
-        let display_serial_key = CFString::from_static_string("DisplaySerialNumber");
+            request.replyTransactionType = intel::get_response_transaction_type::<C>();
+            request.replyAddress = ((I2C_ADDRESS_DDC_CI << 1) | 1) as u32;
+            request.replySubAddress = SUB_ADDRESS_DDC_CI;
 
-        let display_vendor = info.find(&display_vendor_key)?.downcast::<CFNumber>()?.to_i64()? as u32;
-        let display_product = info.find(&display_product_key)?.downcast::<CFNumber>()?.to_i64()? as u32;
-        // Display serial number is not always present. If it's not there, default to zero
-        // (to match what CGDisplay.serial_number() returns
-        let display_serial = info
-            .find(&display_serial_key)
-            .and_then(|x| x.downcast::<CFNumber>())
-            .and_then(|x| x.to_i32())
-            .map(|x| x as u32)
-            .unwrap_or(0);
+            request.replyBuffer = &reply_data as *const _ as usize;
+            request.replyBytes = reply_data.len() as u32;
 
-        if display_vendor == display.vendor_number()
-            && display_product == display.model_number()
-            && display_serial == display.serial_number()
-        {
-            Some(())
-        } else {
-            None
-        }
-    }
-
-    // Gets the framebuffer port
-    fn get_io_framebuffer_port(display: CGDisplay) -> Option<IoObject> {
-        if display.is_builtin() {
-            return None;
-        }
-        IoIterator::for_services("IOFramebuffer")?
-            .find(|framebuffer| Self::framebuffer_port_matches_display(framebuffer, display).is_some())
-    }
-
-    /// Get supported I2C / DDC transaction types
-    /// DDCciReply is what we want, but Simple will also work
-    unsafe fn get_supported_transaction_type() -> Option<u32> {
-        let transaction_types_key = CFString::from_static_string("IOI2CTransactionTypes");
-
-        for io_service in IoIterator::for_service_names("IOFramebufferI2CInterface")? {
-            let mut service_properties = std::ptr::null_mut();
-            if IORegistryEntryCreateCFProperties(
-                (&io_service).into(),
-                &mut service_properties,
-                kCFAllocatorDefault as _,
-                0,
-            ) == kIOReturnSuccess
-            {
-                let info = CFDictionary::<CFString, CFType>::wrap_under_create_rule(service_properties as _);
-                let transaction_types = info.find(&transaction_types_key)?.downcast::<CFNumber>()?.to_i64()?;
-                if ((1 << kIOI2CDDCciReplyTransactionType) & transaction_types) != 0 {
-                    return Some(kIOI2CDDCciReplyTransactionType);
-                } else if ((1 << kIOI2CSimpleTransactionType) & transaction_types) != 0 {
-                    return Some(kIOI2CSimpleTransactionType);
-                }
+            unsafe {
+                intel::send_request(service, &mut request, C::DELAY_COMMAND_MS as u32)?;
             }
-        }
-        None
-    }
 
-    /// send an I2C request to a display
-    unsafe fn send_request(&self, request: &mut IOI2CRequest, post_request_delay: u32) -> Result<(), Error> {
-        let mut bus_count = 0;
-        let mut result: Result<(), Error> = Err(Error::Io(KERN_FAILURE));
-        verify_io(IOFBGetI2CInterfaceCount((&self.frame_buffer).into(), &mut bus_count))?;
-        for bus in 0..bus_count {
-            let mut interface: io_service_t = 0;
-            if IOFBCopyI2CInterfaceForBus((&self.frame_buffer).into(), bus, &mut interface) == kIOReturnSuccess {
-                let interface = IoObject::from(interface);
-                result = IoI2CInterfaceConnection::new(&interface)
-                    .and_then(|connection| connection.send_request(request))
-                    .map_err(From::from);
-                if result.is_ok() {
-                    break;
-                }
+            if request.replyTransactionType == kIOI2CNoTransactionType {
+                CommandResult::decode(&[0u8; 0]).map_err(From::from)
+            } else {
+                Self::decode_reply::<C>(&reply_data)
             }
+        } else {
+            Err(Error::ServiceNotFound)
         }
-        std::thread::sleep(std::time::Duration::from_millis(post_request_delay as u64));
-        result
     }
 
-    fn get_response_transaction_type<C: Command>(&self, _c: C) -> u32 {
-        if C::Ok::MAX_LEN == 0 {
-            kIOI2CNoTransactionType
+    fn execute_arm<C: Command>(&mut self, command: C) -> Result<<C as Command>::Ok, crate::error::Error> {
+        if let MonitorService::Arm(service) = &self.service {
+            let request_data = Self::encode_request(&command)?;
+            std::thread::sleep(std::time::Duration::from_millis(C::DELAY_COMMAND_MS));
+            let success = unsafe {
+                IOAVServiceWriteI2C(
+                    *service,
+                    I2C_ADDRESS_DDC_CI as u32,
+                    SUB_ADDRESS_DDC_CI as u32,
+                    // Skip the first byte, which is the I2C address, which this API does not need
+                    request_data[1..].as_ptr() as _,
+                    (request_data.len() - 1) as _, // command_length as u32 + 3,
+                )
+            };
+            if success != 0 {
+                return Err(Error::Io(success));
+            }
+            if C::Ok::MAX_LEN == 0 {
+                CommandResult::decode(&[0u8; 0]).map_err(From::from)
+            } else {
+                std::thread::sleep(std::time::Duration::from_millis(C::DELAY_RESPONSE_MS));
+                // Allocate data for the response. 36 bytes is larger than any response
+                assert!(C::Ok::MAX_LEN <= 36);
+                let reply_data = [0u8; 36];
+
+                let success = unsafe {
+                    IOAVServiceReadI2C(
+                        *service,
+                        I2C_ADDRESS_DDC_CI as u32,
+                        0,
+                        reply_data.as_ptr() as _,
+                        reply_data.len() as u32,
+                    )
+                };
+                if success != 0 {
+                    return Err(Error::Io(success));
+                }
+                Self::decode_reply::<C>(&reply_data)
+            }
         } else {
-            unsafe { Self::get_supported_transaction_type().unwrap_or(kIOI2CNoTransactionType) }
+            Err(Error::ServiceNotFound)
         }
+    }
+
+    /// Encode the command into request_data buffer
+    fn encode_request<C: Command>(command: &C) -> Result<Vec<u8>, crate::error::Error> {
+        // 36 bytes is an arbitrary number, larger than any I2C command length.
+        // Cannot use [0u8; C::MAX_LEN] (associated constants do not work here)
+        assert!(C::MAX_LEN <= 36);
+        let mut encoded_command = [0u8; 36];
+        let command_length = command.encode(&mut encoded_command)?;
+        let mut request_data = [0u8; 36 + 3];
+        Ok(Self::encode_command(&encoded_command[0..command_length], &mut request_data).to_owned())
+    }
+
+    fn decode_reply<C: Command>(reply_data: &[u8]) -> Result<<C as Command>::Ok, crate::error::Error> {
+        let reply_length = (reply_data[1] & 0x7f) as usize;
+        if reply_length + 2 >= reply_data.len() {
+            return Err(Error::Ddc(ErrorCode::InvalidLength));
+        }
+        let checksum = Self::checksum(
+            iter::once(((I2C_ADDRESS_DDC_CI << 1) | 1) as u8)
+                .chain(iter::once(SUB_ADDRESS_DDC_CI))
+                .chain(reply_data[1..2 + reply_length].iter().cloned()),
+        );
+        if reply_data[2 + reply_length] != checksum {
+            return Err(Error::Ddc(ErrorCode::InvalidChecksum));
+        }
+        CommandResult::decode(&reply_data[2..C::Ok::MAX_LEN + 2]).map_err(From::from)
     }
 }
 
@@ -250,56 +224,9 @@ impl DdcHost for Monitor {
 
 impl DdcCommand for Monitor {
     fn execute<C: Command>(&mut self, command: C) -> Result<<C as Command>::Ok, Self::Error> {
-        // Encode the command into request_data buffer
-        // 36 bytes is an arbitrary number, larger than any I2C command length.
-        // Cannot use [0u8; C::MAX_LEN] (associated constants do not work here)
-        assert!(C::MAX_LEN <= 36);
-        let mut encoded_command = [0u8; 36];
-        let command_length = command.encode(&mut encoded_command)?;
-        let mut request_data = [0u8; 36 + 3];
-        Self::encode_command(&encoded_command[0..command_length], &mut request_data);
-
-        // Allocate data for the response. 36 bytes is larger than any response
-        assert!(C::Ok::MAX_LEN <= 36);
-        let reply_data = [0u8; 36];
-        let mut request: IOI2CRequest = unsafe { std::mem::zeroed() };
-
-        request.commFlags = 0;
-        request.sendAddress = (I2C_ADDRESS_DDC_CI << 1) as u32;
-        request.sendTransactionType = kIOI2CSimpleTransactionType;
-        request.sendBuffer = &request_data as *const _ as usize;
-        request.sendBytes = (command_length + 3) as u32;
-        request.minReplyDelay = C::DELAY_RESPONSE_MS * kMillisecondScale as u64;
-        request.result = -1;
-
-        request.replyTransactionType = self.get_response_transaction_type(command);
-        request.replyAddress = ((I2C_ADDRESS_DDC_CI << 1) | 1) as u32;
-        request.replySubAddress = SUB_ADDRESS_DDC_CI;
-
-        request.replyBuffer = &reply_data as *const _ as usize;
-        request.replyBytes = reply_data.len() as u32;
-
-        unsafe {
-            self.send_request(&mut request, C::DELAY_COMMAND_MS as u32)?;
-        }
-
-        if request.replyTransactionType == kIOI2CNoTransactionType {
-            CommandResult::decode(&[0u8; 0]).map_err(From::from)
-        } else {
-            let reply_length = (reply_data[1] & 0x7f) as usize;
-            if reply_length + 2 >= reply_data.len() {
-                return Err(Error::Ddc(ErrorCode::InvalidLength));
-            }
-
-            let checksum = Self::checksum(
-                iter::once(request.replyAddress as u8)
-                    .chain(iter::once(SUB_ADDRESS_DDC_CI))
-                    .chain(reply_data[1..2 + reply_length].iter().cloned()),
-            );
-            if reply_data[2 + reply_length] != checksum {
-                return Err(Error::Ddc(ErrorCode::InvalidChecksum));
-            }
-            CommandResult::decode(&reply_data[2..reply_length + 2]).map_err(From::from)
+        match &self.service {
+            MonitorService::Intel(_) => self.execute_intel(command),
+            MonitorService::Arm(_) => self.execute_arm(command),
         }
     }
 }

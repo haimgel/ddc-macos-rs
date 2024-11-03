@@ -1,5 +1,6 @@
 // Copied from https://github.com/svartalf/rust-battery/blob/master/battery/src/platform/darwin/iokit/errors.rs
 
+#[macro_export]
 macro_rules! r#kern_try {
     ($expr:expr) => {
         match $expr {

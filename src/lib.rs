@@ -19,7 +19,11 @@
 //! # }
 //! ```
 
+mod arm;
+mod error;
+mod intel;
 mod iokit;
 mod monitor;
 
+pub use error::*;
 pub use monitor::*;
