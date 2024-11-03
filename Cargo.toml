@@ -1,6 +1,6 @@
 [package]
 name = "ddc-macos"
-version = "0.3.0"
+version = "0.2.2"
 authors = ["Haim Gelfenbeyn <haim@g8n.me>"]
 description = "DDC/CI monitor control on MacOS"
 documentation = "https://haimgel.github.io/ddc-macos-rs/ddc_macos"
