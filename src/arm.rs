@@ -63,16 +63,17 @@ pub fn get_display_av_service(display: CGDisplay) -> Result<IOAVService, Error> 
                 while let Some(service) = iter.next() {
                     if get_service_registry_entry_name(service.as_raw())? == "DCPAVServiceProxy" {
                         let av_service = unsafe { IOAVServiceCreateWithService(kCFAllocatorDefault, service.as_raw()) };
-                        let loc_ref = unsafe {
-                            CFType::wrap_under_create_rule(IORegistryEntryCreateCFProperty(
-                                service.as_raw(),
-                                CFString::from_static_string("Location").as_concrete_TypeRef(),
-                                kCFAllocatorDefault,
-                                kIORegistryIterateRecursively,
-                            ))
-                        };
-                        if !av_service.is_null() && loc_ref == external_location {
-                            return Ok(av_service);
+                        let loc_ref = unsafe { IORegistryEntryCreateCFProperty(
+                            service.as_raw(),
+                            CFString::from_static_string("Location").as_concrete_TypeRef(),
+                            kCFAllocatorDefault,
+                            kIORegistryIterateRecursively,
+                        ) };
+                        if !loc_ref.is_null() {
+                            let loc_ref = unsafe { CFType::wrap_under_create_rule(loc_ref) };
+                            if !av_service.is_null() && (loc_ref == external_location) {
+                                return Ok(av_service);
+                            }
                         }
                     }
                 }
