@@ -113,8 +113,7 @@ fn framebuffer_port_matches_display(port: &IoObject, display: CGDisplay) -> Opti
         .find(&display_serial_key)
         .and_then(|x| x.downcast::<CFNumber>())
         .and_then(|x| x.to_i32())
-        .map(|x| x as u32)
-        .unwrap_or(0);
+        .map_or(0, |x| x as u32);
 
     if display_vendor == display.vendor_number()
         && display_product == display.model_number()
