@@ -1,12 +1,9 @@
 #![deny(missing_docs)]
 
-use crate::arm::{IOAVService, IOAVServiceReadI2C, IOAVServiceWriteI2C};
 use crate::error::Error;
-use crate::intel::get_supported_transaction_type;
 use crate::iokit::CoreDisplay_DisplayCreateInfoDictionary;
 use crate::iokit::IoObject;
-use crate::iokit::*;
-use crate::{arm, intel, verify_io};
+use crate::{arm, intel};
 use core_foundation::base::{CFType, TCFType};
 use core_foundation::data::CFData;
 use core_foundation::dictionary::CFDictionary;
@@ -23,7 +20,7 @@ use std::{fmt, iter};
 #[derive(Debug)]
 enum MonitorService {
     Intel(IoObject),
-    Arm(IOAVService),
+    Arm(arm::IOAVService),
 }
 
 /// A handle to an attached monitor that allows the use of DDC/CI operations.
@@ -117,78 +114,6 @@ impl Monitor {
         self.monitor
     }
 
-    fn execute_intel<'a>(
-        service: &IoObject,
-        i2c_address: u16,
-        request_data: &[u8],
-        out: &'a mut [u8],
-        response_delay: Duration,
-    ) -> Result<&'a mut [u8], crate::error::Error> {
-        let mut request: IOI2CRequest = unsafe { std::mem::zeroed() };
-
-        request.commFlags = 0;
-        request.sendAddress = (i2c_address << 1) as u32;
-        request.sendTransactionType = kIOI2CSimpleTransactionType;
-        request.sendBuffer = &request_data as *const _ as usize;
-        request.sendBytes = request_data.len() as u32;
-        request.minReplyDelay = response_delay.as_nanos() as u64;
-        request.result = -1;
-
-        request.replyTransactionType = if out.is_empty() {
-            kIOI2CNoTransactionType
-        } else {
-            unsafe { get_supported_transaction_type().unwrap_or(kIOI2CNoTransactionType) }
-        };
-        request.replyAddress = ((i2c_address << 1) | 1) as u32;
-        request.replySubAddress = SUB_ADDRESS_DDC_CI;
-
-        request.replyBuffer = &out as *const _ as usize;
-        request.replyBytes = out.len() as u32;
-
-        unsafe {
-            intel::send_request(service, &mut request)?;
-        }
-        if request.replyTransactionType != kIOI2CNoTransactionType {
-            Ok(&mut [0u8; 0])
-        } else {
-            Ok(out)
-        }
-    }
-
-    fn execute_arm<'a>(
-        service: &IOAVService,
-        i2c_address: u16,
-        request_data: &[u8],
-        out: &'a mut [u8],
-        response_delay: Duration,
-    ) -> Result<&'a mut [u8], crate::error::Error> {
-        unsafe {
-            verify_io(IOAVServiceWriteI2C(
-                *service,
-                i2c_address as _, // I2C_ADDRESS_DDC_CI as u32,
-                SUB_ADDRESS_DDC_CI as _,
-                // Skip the first byte, which is the I2C address, which this API does not need
-                request_data[1..].as_ptr() as _,
-                (request_data.len() - 1) as _, // command_length as u32 + 3,
-            ))?;
-        };
-        if !out.is_empty() {
-            std::thread::sleep(response_delay);
-            unsafe {
-                verify_io(IOAVServiceReadI2C(
-                    *service,
-                    i2c_address as _, // I2C_ADDRESS_DDC_CI as u32,
-                    0,
-                    out.as_ptr() as _,
-                    out.len() as u32,
-                ))?;
-            };
-            Ok(out)
-        } else {
-            Ok(&mut [0u8; 0])
-        }
-    }
-
     fn encode_command<'a>(&self, data: &[u8], packet: &'a mut [u8]) -> &'a [u8] {
         packet[0] = SUB_ADDRESS_DDC_CI;
         packet[1] = 0x80 | data.len() as u8;
@@ -237,10 +162,8 @@ impl DdcCommandRaw for Monitor {
         let mut packet = [0u8; 36 + 3];
         let packet = self.encode_command(data, &mut packet);
         let response = match &self.service {
-            MonitorService::Intel(service) => {
-                Self::execute_intel(service, self.i2c_address, packet, out, response_delay)
-            }
-            MonitorService::Arm(service) => Self::execute_arm(service, self.i2c_address, packet, out, response_delay),
+            MonitorService::Intel(service) => intel::execute(service, self.i2c_address, packet, out, response_delay),
+            MonitorService::Arm(service) => arm::execute(service, self.i2c_address, packet, out, response_delay),
         }?;
         self.decode_response(response)
     }
