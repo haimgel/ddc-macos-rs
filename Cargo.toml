@@ -1,6 +1,6 @@
 [package]
 name = "ddc-macos"
-version = "0.3.0"
+version = "0.2.2"
 authors = ["Haim Gelfenbeyn <haim@g8n.me>"]
 description = "DDC/CI monitor control on MacOS"
 documentation = "https://haimgel.github.io/ddc-macos-rs/ddc_macos"
@@ -12,13 +12,14 @@ categories = ["hardware-support", "os::macos-apis"]
 edition = "2021"
 
 [dependencies]
-core-foundation = "0.10.0"
+core-foundation = "0.10"
 core-foundation-sys = "0.8"
 core-graphics = "0.24"
-ddc = "0.3"
+# ddc must stay on "0.2" till ddc-hi is also updated
+ddc = "0.2"
 io-kit-sys = "0.4"
-mach = "0.3"
-thiserror = "1"
+mach2 = "0.4"
+thiserror = "1.0"
 
 [dev-dependencies]
 edid-rs = "0.1"

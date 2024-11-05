@@ -2,12 +2,12 @@
 
 /// Translation of IOKit/i2c/IOI2CInterface.h
 extern crate io_kit_sys;
-extern crate mach;
+extern crate mach2;
 
 use crate::iokit::wrappers::IoObject;
 use io_kit_sys::ret::IOReturn;
 use io_kit_sys::types::{io_service_t, IOItemCount, IOOptionBits};
-use mach::vm_types::{mach_vm_address_t, mach_vm_size_t, vm_address_t};
+use mach2::vm_types::{mach_vm_address_t, mach_vm_size_t, vm_address_t};
 use std::os::raw::c_uint;
 
 /// IOI2CRequest.sendTransactionType, IOI2CRequest.replyTransactionType

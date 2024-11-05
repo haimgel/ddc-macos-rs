@@ -1,9 +1,12 @@
+use crate::iokit::display::kIOMainPortDefault;
 use core_foundation::base::{kCFAllocatorDefault, CFType, TCFType};
 use core_foundation::dictionary::{CFDictionary, CFMutableDictionary, CFMutableDictionaryRef};
 use core_foundation::string::CFString;
+use io_kit_sys::keys::kIOServicePlane;
 use io_kit_sys::types::{io_iterator_t, io_object_t};
 use io_kit_sys::{
-    kIOMasterPortDefault, IOIteratorNext, IOObjectRelease, IORegistryEntryCreateCFProperties,
+    kIOMasterPortDefault, kIORegistryIterateRecursively, IOIteratorNext, IOObjectRelease,
+    IORegistryEntryCreateCFProperties, IORegistryEntryCreateIterator, IORegistryGetRootEntry,
     IOServiceGetMatchingServices, IOServiceMatching, IOServiceNameMatching,
 };
 use std::ops::{Deref, DerefMut};
@@ -66,6 +69,20 @@ impl IoIterator {
         unsafe {
             kern_try!(IOServiceGetMatchingServices(kIOMasterPortDefault, dict as _, &mut iter));
         }
+        Ok(Self(iter))
+    }
+
+    pub fn root() -> Result<IoIterator, std::io::Error> {
+        let mut iter: io_iterator_t = 0;
+        unsafe {
+            let root = IORegistryGetRootEntry(kIOMainPortDefault);
+            kern_try!(IORegistryEntryCreateIterator(
+                root,
+                kIOServicePlane,
+                kIORegistryIterateRecursively,
+                &mut iter
+            ));
+        };
         Ok(Self(iter))
     }
 }
