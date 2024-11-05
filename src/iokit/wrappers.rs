@@ -28,11 +28,6 @@ impl IoObject {
             Ok(CFMutableDictionary::wrap_under_create_rule(props as _).to_immutable())
         }
     }
-
-    /// Accessor method to get the inner `io_object_t`
-    pub fn as_raw(&self) -> io_object_t {
-        self.0
-    }
 }
 
 impl From<io_object_t> for IoObject {

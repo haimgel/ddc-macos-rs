@@ -73,14 +73,14 @@ pub(crate) fn get_display_av_service(display: CGDisplay) -> Result<(IOAVService,
 
     let mut iter = IoIterator::root()?;
     while let Some(service) = iter.next() {
-        if let Ok(registry_location) = get_service_registry_entry_path(service.as_raw()) {
+        if let Ok(registry_location) = get_service_registry_entry_path((&service).into()) {
             if registry_location == location {
                 while let Some(service) = iter.next() {
-                    if get_service_registry_entry_name(service.as_raw())? == "DCPAVServiceProxy" {
-                        let av_service = unsafe { IOAVServiceCreateWithService(kCFAllocatorDefault, service.as_raw()) };
+                    if get_service_registry_entry_name((&service).into())? == "DCPAVServiceProxy" {
+                        let av_service = unsafe { IOAVServiceCreateWithService(kCFAllocatorDefault, (&service).into()) };
                         let loc_ref = unsafe {
                             IORegistryEntryCreateCFProperty(
-                                service.as_raw(),
+                                (&service).into(),
                                 CFString::from_static_string("Location").as_concrete_TypeRef(),
                                 kCFAllocatorDefault,
                                 kIORegistryIterateRecursively,
@@ -109,7 +109,7 @@ fn i2c_address(service: IoObject) -> u16 {
     // not a standard 0x37 but 0xB7.
     let mut parent: io_registry_entry_t = 0;
     unsafe {
-        if IORegistryEntryGetParentEntry(service.as_raw(), kIOServicePlane, &mut parent) != KERN_SUCCESS {
+        if IORegistryEntryGetParentEntry((&service).into(), kIOServicePlane, &mut parent) != KERN_SUCCESS {
             return I2C_ADDRESS_DDC_CI;
         }
     }
