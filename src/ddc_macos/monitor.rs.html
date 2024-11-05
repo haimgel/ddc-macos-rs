@@ -304,7 +304,6 @@
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
 </pre></div><pre class="rust"><code><span class="attr">#![deny(missing_docs)]
 
 </span><span class="kw">use </span><span class="kw">crate</span>::iokit::display::<span class="kw-2">*</span>;
@@ -473,8 +472,7 @@
             .find(<span class="kw-2">&amp;</span>display_serial_key)
             .and_then(|x| x.downcast::&lt;CFNumber&gt;())
             .and_then(|x| x.to_i32())
-            .map(|x| x <span class="kw">as </span>u32)
-            .unwrap_or(<span class="number">0</span>);
+            .map_or(<span class="number">0</span>, |x| x <span class="kw">as </span>u32);
 
         <span class="kw">if </span>display_vendor == display.vendor_number()
             &amp;&amp; display_product == display.model_number()
