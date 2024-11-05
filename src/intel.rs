@@ -15,7 +15,7 @@ use ddc::SUB_ADDRESS_DDC_CI;
 use io_kit_sys::ret::kIOReturnSuccess;
 use io_kit_sys::types::{io_service_t, IOItemCount};
 use io_kit_sys::IORegistryEntryCreateCFProperties;
-use mach::kern_return::KERN_FAILURE;
+use mach2::kern_return::KERN_FAILURE;
 use std::time::Duration;
 
 pub(crate) fn execute<'a>(

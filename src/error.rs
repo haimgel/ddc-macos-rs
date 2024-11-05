@@ -1,7 +1,7 @@
 use core_graphics::base::CGError;
 use ddc::ErrorCode;
 use io_kit_sys::ret::kIOReturnSuccess;
-use mach::kern_return::{kern_return_t, KERN_FAILURE};
+use mach2::kern_return::{kern_return_t, KERN_FAILURE};
 use thiserror::Error;
 
 /// An error that can occur during DDC/CI communication with a monitor
@@ -20,7 +20,7 @@ pub enum Error {
     #[error("Service not found")]
     ServiceNotFound,
     /// Display location not found
-    #[error("Service not found")]
+    #[error("Display location not found")]
     DisplayLocationNotFound,
 }
 

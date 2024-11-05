@@ -13,12 +13,13 @@ edition = "2021"
 
 [dependencies]
 core-foundation = "0.10"
-core-foundation-sys = "^0.8"
-core-graphics = "^0.24"
+core-foundation-sys = "0.8"
+core-graphics = "0.24"
+# ddc must stay on "0.2" till ddc-hi is also updated
 ddc = "0.2"
 io-kit-sys = "0.4"
-mach = "0.3"
-thiserror = "1"
+mach2 = "0.4"
+thiserror = "1.0"
 
 [dev-dependencies]
 edid-rs = "0.1"

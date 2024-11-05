@@ -15,7 +15,7 @@ use io_kit_sys::{
     kIORegistryIterateRecursively, IORegistryEntryCreateCFProperty, IORegistryEntryGetName,
     IORegistryEntryGetParentEntry, IORegistryEntryGetPath,
 };
-use mach::kern_return::KERN_SUCCESS;
+use mach2::kern_return::KERN_SUCCESS;
 use std::ffi::CStr;
 use std::os::raw::{c_uint, c_void};
 use std::time::Duration;

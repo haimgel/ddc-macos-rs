@@ -4,7 +4,7 @@
 use core_foundation::dictionary::CFDictionaryRef;
 use core_graphics::display::CGDirectDisplayID;
 use io_kit_sys::types::{io_service_t, IOOptionBits};
-use mach::port::mach_port_t;
+use mach2::port::mach_port_t;
 
 pub const kIODisplayMatchingInfo: IOOptionBits = 0x00000100;
 pub const kIODisplayOnlyPreferredName: IOOptionBits = 0x00000200;
