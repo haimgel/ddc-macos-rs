@@ -12,18 +12,34 @@
 <a href="#12" id="12">12</a>
 <a href="#13" id="13">13</a>
 <a href="#14" id="14">14</a>
+<a href="#15" id="15">15</a>
+<a href="#16" id="16">16</a>
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(non_upper_case_globals, unused)]
 
 </span><span class="doccomment">/// Selective translation of IOKit/graphics/IOGraphicsLib.h
 </span><span class="kw">use </span>core_foundation::dictionary::CFDictionaryRef;
+<span class="kw">use </span>core_graphics::display::CGDirectDisplayID;
 <span class="kw">use </span>io_kit_sys::types::{io_service_t, IOOptionBits};
+<span class="kw">use </span>mach2::port::mach_port_t;
 
 <span class="kw">pub const </span>kIODisplayMatchingInfo: IOOptionBits = <span class="number">0x00000100</span>;
 <span class="kw">pub const </span>kIODisplayOnlyPreferredName: IOOptionBits = <span class="number">0x00000200</span>;
 <span class="kw">pub const </span>kIODisplayNoProductName: IOOptionBits = <span class="number">0x00000400</span>;
 
 <span class="kw">extern </span><span class="string">"C" </span>{
+    <span class="comment">// For some reason, this is missing from io_kit_sys
+    </span><span class="kw">pub static </span>kIOMainPortDefault: mach_port_t;
     <span class="attr">#[link(name = <span class="string">"IOKit"</span>, kind = <span class="string">"framework"</span>)]
     </span><span class="kw">pub fn </span>IODisplayCreateInfoDictionary(framebuffer: io_service_t, options: IOOptionBits) -&gt; CFDictionaryRef;
+
+    <span class="attr">#[link(name = <span class="string">"CoreDisplay"</span>, kind = <span class="string">"framework"</span>)]
+    </span><span class="comment">// Creates a display info dictionary for a specified display ID
+    </span><span class="kw">pub fn </span>CoreDisplay_DisplayCreateInfoDictionary(display_id: CGDirectDisplayID) -&gt; CFDictionaryRef;
 }
 </code></pre></div></section></main></body></html>

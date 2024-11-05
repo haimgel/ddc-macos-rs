@@ -23,6 +23,10 @@
 <a href="#23" id="23">23</a>
 <a href="#24" id="24">24</a>
 <a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
 </pre></div><pre class="rust"><code><span class="attr">#![doc(html_root_url = <span class="string">"https://haimgel.github.io/ddc-macos-rs/"</span>)]
 
 </span><span class="doccomment">//! Implementation of DDC/CI traits on MacOS.
@@ -44,8 +48,12 @@
 //! # }
 //! ```
 
-</span><span class="kw">mod </span>iokit;
+</span><span class="kw">mod </span>arm;
+<span class="kw">mod </span>error;
+<span class="kw">mod </span>intel;
+<span class="kw">mod </span>iokit;
 <span class="kw">mod </span>monitor;
 
+<span class="kw">pub use </span>error::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>monitor::<span class="kw-2">*</span>;
 </code></pre></div></section></main></body></html>

@@ -109,12 +109,12 @@
 
 </span><span class="doccomment">/// Translation of IOKit/i2c/IOI2CInterface.h
 </span><span class="kw">extern crate </span>io_kit_sys;
-<span class="kw">extern crate </span>mach;
+<span class="kw">extern crate </span>mach2;
 
 <span class="kw">use </span><span class="kw">crate</span>::iokit::wrappers::IoObject;
 <span class="kw">use </span>io_kit_sys::ret::IOReturn;
 <span class="kw">use </span>io_kit_sys::types::{io_service_t, IOItemCount, IOOptionBits};
-<span class="kw">use </span>mach::vm_types::{mach_vm_address_t, mach_vm_size_t, vm_address_t};
+<span class="kw">use </span>mach2::vm_types::{mach_vm_address_t, mach_vm_size_t, vm_address_t};
 <span class="kw">use </span>std::os::raw::c_uint;
 
 <span class="doccomment">/// IOI2CRequest.sendTransactionType, IOI2CRequest.replyTransactionType

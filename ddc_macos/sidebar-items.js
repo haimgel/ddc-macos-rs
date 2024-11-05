@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Error"],"struct":["Monitor"]};
+window.SIDEBAR_ITEMS = {"enum":["Error"],"fn":["verify_io"],"macro":["kern_try"],"struct":["Monitor"]};

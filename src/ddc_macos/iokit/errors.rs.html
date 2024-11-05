@@ -11,12 +11,14 @@
 <a href="#11" id="11">11</a>
 <a href="#12" id="12">12</a>
 <a href="#13" id="13">13</a>
+<a href="#14" id="14">14</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copied from https://github.com/svartalf/rust-battery/blob/master/battery/src/platform/darwin/iokit/errors.rs
 
+</span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules!</span> r#kern_try {
     (<span class="macro-nonterminal">$expr</span>:expr) =&gt; {
         <span class="kw">match </span><span class="macro-nonterminal">$expr </span>{
-            mach::kern_return::KERN_SUCCESS =&gt; (),
+            mach2::kern_return::KERN_SUCCESS =&gt; (),
             err_code =&gt; <span class="kw">return </span>::std::result::Result::Err(::std::io::Error::from_raw_os_error(err_code).into()),
         }
     };

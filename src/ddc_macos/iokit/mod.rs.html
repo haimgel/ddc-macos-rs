@@ -3,9 +3,17 @@
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
 <a href="#5" id="5">5</a>
+<a href="#6" id="6">6</a>
+<a href="#7" id="7">7</a>
+<a href="#8" id="8">8</a>
+<a href="#9" id="9">9</a>
 </pre></div><pre class="rust"><code><span class="attr">#[macro_use]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>errors;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>display;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>io2c_interface;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>wrappers;
+<span class="kw">mod </span>display;
+<span class="kw">mod </span>io2c_interface;
+<span class="kw">mod </span>wrappers;
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>display::<span class="kw-2">*</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>io2c_interface::<span class="kw-2">*</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>wrappers::<span class="kw-2">*</span>;
 </code></pre></div></section></main></body></html>

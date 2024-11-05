@@ -1,9 +1,9 @@
 (function() {
-    var implementors = Object.fromEntries([["ddc_macos",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.82.0/core/marker/trait.Send.html\" title=\"trait core::marker::Send\">Send</a> for <a class=\"enum\" href=\"ddc_macos/enum.Error.html\" title=\"enum ddc_macos::Error\">Error</a>",1,["ddc_macos::monitor::Error"]],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.82.0/core/marker/trait.Send.html\" title=\"trait core::marker::Send\">Send</a> for <a class=\"struct\" href=\"ddc_macos/struct.Monitor.html\" title=\"struct ddc_macos::Monitor\">Monitor</a>",1,["ddc_macos::monitor::Monitor"]]]]]);
+    var implementors = Object.fromEntries([["ddc_macos",[["impl !<a class=\"trait\" href=\"https://doc.rust-lang.org/1.82.0/core/marker/trait.Send.html\" title=\"trait core::marker::Send\">Send</a> for <a class=\"struct\" href=\"ddc_macos/struct.Monitor.html\" title=\"struct ddc_macos::Monitor\">Monitor</a>",1,["ddc_macos::monitor::Monitor"]],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.82.0/core/marker/trait.Send.html\" title=\"trait core::marker::Send\">Send</a> for <a class=\"enum\" href=\"ddc_macos/enum.Error.html\" title=\"enum ddc_macos::Error\">Error</a>",1,["ddc_macos::error::Error"]]]]]);
     if (window.register_implementors) {
         window.register_implementors(implementors);
     } else {
         window.pending_implementors = implementors;
     }
 })()
-//{"start":57,"fragment_lengths":[575]}
+//{"start":57,"fragment_lengths":[574]}
