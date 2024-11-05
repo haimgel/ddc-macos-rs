@@ -1,18 +1,21 @@
 use crate::error::Error;
 use crate::error::Error::{DisplayLocationNotFound, ServiceNotFound};
-use crate::iokit::CoreDisplay_DisplayCreateInfoDictionary;
 use crate::iokit::IoIterator;
+use crate::iokit::{CoreDisplay_DisplayCreateInfoDictionary, IoObject};
 use crate::kern_try;
 use core_foundation::base::{CFType, TCFType};
 use core_foundation::dictionary::CFDictionary;
 use core_foundation::string::CFString;
 use core_foundation_sys::base::{kCFAllocatorDefault, CFAllocatorRef, CFTypeRef, OSStatus};
 use core_graphics::display::CGDisplay;
+use ddc::I2C_ADDRESS_DDC_CI;
 use io_kit_sys::keys::kIOServicePlane;
 use io_kit_sys::types::{io_object_t, io_registry_entry_t};
 use io_kit_sys::{
-    kIORegistryIterateRecursively, IORegistryEntryCreateCFProperty, IORegistryEntryGetName, IORegistryEntryGetPath,
+    kIORegistryIterateRecursively, IORegistryEntryCreateCFProperty, IORegistryEntryGetName,
+    IORegistryEntryGetParentEntry, IORegistryEntryGetPath,
 };
+use mach::kern_return::KERN_SUCCESS;
 use std::ffi::CStr;
 use std::os::raw::{c_uint, c_void};
 
@@ -42,7 +45,8 @@ extern "C" {
     ) -> OSStatus;
 }
 
-pub fn get_display_av_service(display: CGDisplay) -> Result<IOAVService, Error> {
+/// Returns an AVService and its DDC I2C address for a given display
+pub fn get_display_av_service(display: CGDisplay) -> Result<(IOAVService, u16), Error> {
     if display.is_builtin() {
         return Err(ServiceNotFound);
     }
@@ -63,16 +67,18 @@ pub fn get_display_av_service(display: CGDisplay) -> Result<IOAVService, Error> 
                 while let Some(service) = iter.next() {
                     if get_service_registry_entry_name(service.as_raw())? == "DCPAVServiceProxy" {
                         let av_service = unsafe { IOAVServiceCreateWithService(kCFAllocatorDefault, service.as_raw()) };
-                        let loc_ref = unsafe { IORegistryEntryCreateCFProperty(
-                            service.as_raw(),
-                            CFString::from_static_string("Location").as_concrete_TypeRef(),
-                            kCFAllocatorDefault,
-                            kIORegistryIterateRecursively,
-                        ) };
+                        let loc_ref = unsafe {
+                            IORegistryEntryCreateCFProperty(
+                                service.as_raw(),
+                                CFString::from_static_string("Location").as_concrete_TypeRef(),
+                                kCFAllocatorDefault,
+                                kIORegistryIterateRecursively,
+                            )
+                        };
                         if !loc_ref.is_null() {
                             let loc_ref = unsafe { CFType::wrap_under_create_rule(loc_ref) };
                             if !av_service.is_null() && (loc_ref == external_location) {
-                                return Ok(av_service);
+                                return Ok((av_service, i2c_address(service)));
                             }
                         }
                     }
@@ -81,6 +87,39 @@ pub fn get_display_av_service(display: CGDisplay) -> Result<IOAVService, Error> 
         }
     }
     Err(ServiceNotFound)
+}
+
+const I2C_ADDRESS_DDC_CI_MDCP29XX: u16 = 0xB7;
+
+/// Returns the I2C chip address for a given service
+fn i2c_address(service: IoObject) -> u16 {
+    // M1 Macs use a non-standard chip address on their builtin HDMI ports: they are behind a
+    // MDCP29xx DisplayPort to HDMI bridge chip, and it needs a different I2C slave address:
+    // not a standard 0x37 but 0xB7.
+    let mut parent: io_registry_entry_t = 0;
+    unsafe {
+        if IORegistryEntryGetParentEntry(service.as_raw(), kIOServicePlane, &mut parent) != KERN_SUCCESS {
+            return I2C_ADDRESS_DDC_CI;
+        }
+    }
+    let class_ref = unsafe {
+        IORegistryEntryCreateCFProperty(
+            parent,
+            CFString::from_static_string("EPICProviderClass").as_concrete_TypeRef(),
+            kCFAllocatorDefault,
+            kIORegistryIterateRecursively,
+        )
+    };
+    if class_ref.is_null() {
+        return I2C_ADDRESS_DDC_CI;
+    }
+    let mcdp29xx = CFString::from_static_string("AppleDCPMCDP29XX").into_CFType();
+    let class_ref = unsafe { CFType::wrap_under_create_rule(class_ref) };
+    if class_ref == mcdp29xx {
+        I2C_ADDRESS_DDC_CI_MDCP29XX
+    } else {
+        I2C_ADDRESS_DDC_CI
+    }
 }
 
 fn get_service_registry_entry_path(entry: io_registry_entry_t) -> Result<String, Error> {

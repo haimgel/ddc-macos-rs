@@ -1,8 +1,8 @@
 use crate::error::{verify_io, Error};
 use crate::iokit::{kIODisplayOnlyPreferredName, IODisplayCreateInfoDictionary};
 use crate::iokit::{
-    kIOI2CDDCciReplyTransactionType, kIOI2CNoTransactionType, kIOI2CSimpleTransactionType, IOFBCopyI2CInterfaceForBus,
-    IOFBGetI2CInterfaceCount, IOI2CRequest, IoI2CInterfaceConnection,
+    kIOI2CDDCciReplyTransactionType, kIOI2CSimpleTransactionType, IOFBCopyI2CInterfaceForBus, IOFBGetI2CInterfaceCount,
+    IOI2CRequest, IoI2CInterfaceConnection,
 };
 use crate::iokit::{IoIterator, IoObject};
 use core_foundation::base::{CFType, TCFType};
@@ -11,7 +11,6 @@ use core_foundation::number::CFNumber;
 use core_foundation::string::CFString;
 use core_foundation_sys::base::kCFAllocatorDefault;
 use core_graphics::display::CGDisplay;
-use ddc::{Command, CommandResult};
 use io_kit_sys::ret::kIOReturnSuccess;
 use io_kit_sys::types::{io_service_t, IOItemCount};
 use io_kit_sys::IORegistryEntryCreateCFProperties;
@@ -100,7 +99,7 @@ pub fn get_io_framebuffer_port(display: CGDisplay) -> Option<IoObject> {
 pub(crate) unsafe fn send_request(
     service: &IoObject,
     request: &mut IOI2CRequest,
-    post_request_delay: u32,
+    // post_request_delay: u32,
 ) -> Result<(), Error> {
     let mut bus_count = 0;
     let mut result: Result<(), Error> = Err(Error::Io(KERN_FAILURE));
@@ -117,14 +116,6 @@ pub(crate) unsafe fn send_request(
             }
         }
     }
-    std::thread::sleep(std::time::Duration::from_millis(post_request_delay as u64));
+    // std::thread::sleep(std::time::Duration::from_millis(post_request_delay as u64));
     result
-}
-
-pub(crate) fn get_response_transaction_type<C: Command>() -> u32 {
-    if C::Ok::MAX_LEN == 0 {
-        kIOI2CNoTransactionType
-    } else {
-        unsafe { get_supported_transaction_type().unwrap_or(kIOI2CNoTransactionType) }
-    }
 }

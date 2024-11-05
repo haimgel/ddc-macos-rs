@@ -2,19 +2,21 @@
 
 use crate::arm::{IOAVService, IOAVServiceReadI2C, IOAVServiceWriteI2C};
 use crate::error::Error;
+use crate::intel::get_supported_transaction_type;
 use crate::iokit::CoreDisplay_DisplayCreateInfoDictionary;
 use crate::iokit::IoObject;
 use crate::iokit::*;
-use crate::{arm, intel};
+use crate::{arm, intel, verify_io};
 use core_foundation::base::{CFType, TCFType};
 use core_foundation::data::CFData;
 use core_foundation::dictionary::CFDictionary;
 use core_foundation::string::{CFString, CFStringRef};
 use core_graphics::display::CGDisplay;
 use ddc::{
-    Command, CommandResult, DdcCommand, DdcCommandMarker, DdcHost, ErrorCode, I2C_ADDRESS_DDC_CI, SUB_ADDRESS_DDC_CI,
+    DdcCommand, DdcCommandMarker, DdcCommandRaw, DdcCommandRawMarker, DdcHost, Delay, ErrorCode, I2C_ADDRESS_DDC_CI,
+    SUB_ADDRESS_DDC_CI,
 };
-use io_kit_sys::types::kMillisecondScale;
+use std::time::Duration;
 use std::{fmt, iter};
 
 /// DDC access method for a monitor
@@ -29,6 +31,8 @@ enum MonitorService {
 pub struct Monitor {
     monitor: CGDisplay,
     service: MonitorService,
+    i2c_address: u16,
+    delay: Delay,
 }
 
 impl fmt::Display for Monitor {
@@ -39,8 +43,13 @@ impl fmt::Display for Monitor {
 
 impl Monitor {
     /// Create a new monitor from the specified handle.
-    fn new(monitor: CGDisplay, service: MonitorService) -> Self {
-        Monitor { monitor, service }
+    fn new(monitor: CGDisplay, service: MonitorService, i2c_address: u16) -> Self {
+        Monitor {
+            monitor,
+            service,
+            i2c_address,
+            delay: Default::default(),
+        }
     }
 
     /// Enumerate all connected physical monitors returning [Vec<Monitor>]
@@ -51,9 +60,9 @@ impl Monitor {
             .filter_map(|display_id| {
                 let display = CGDisplay::new(display_id);
                 return if let Some(service) = intel::get_io_framebuffer_port(display) {
-                    Some(Self::new(display, MonitorService::Intel(service)))
-                } else if let Ok(service) = arm::get_display_av_service(display) {
-                    Some(Self::new(display, MonitorService::Arm(service)))
+                    Some(Self::new(display, MonitorService::Intel(service), I2C_ADDRESS_DDC_CI))
+                } else if let Ok((service, i2c_address)) = arm::get_display_av_service(display) {
+                    Some(Self::new(display, MonitorService::Arm(service), i2c_address))
                 } else {
                     None
                 };
@@ -108,127 +117,139 @@ impl Monitor {
         self.monitor
     }
 
-    fn execute_intel<C: Command>(&mut self, command: C) -> Result<<C as Command>::Ok, crate::error::Error> {
-        if let MonitorService::Intel(service) = &self.service {
-            let request_data = Self::encode_request(&command)?;
+    fn execute_intel<'a>(
+        service: &IoObject,
+        i2c_address: u16,
+        request_data: &[u8],
+        out: &'a mut [u8],
+        response_delay: Duration,
+    ) -> Result<&'a mut [u8], crate::error::Error> {
+        let mut request: IOI2CRequest = unsafe { std::mem::zeroed() };
 
-            // Allocate data for the response. 36 bytes is larger than any response
-            assert!(C::Ok::MAX_LEN <= 36);
-            let reply_data = [0u8; 36];
-            let mut request: IOI2CRequest = unsafe { std::mem::zeroed() };
+        request.commFlags = 0;
+        request.sendAddress = (i2c_address << 1) as u32;
+        request.sendTransactionType = kIOI2CSimpleTransactionType;
+        request.sendBuffer = &request_data as *const _ as usize;
+        request.sendBytes = request_data.len() as u32;
+        request.minReplyDelay = response_delay.as_nanos() as u64;
+        request.result = -1;
 
-            request.commFlags = 0;
-            request.sendAddress = (I2C_ADDRESS_DDC_CI << 1) as u32;
-            request.sendTransactionType = kIOI2CSimpleTransactionType;
-            request.sendBuffer = &request_data as *const _ as usize;
-            request.sendBytes = request_data.len() as u32;
-            request.minReplyDelay = C::DELAY_RESPONSE_MS * kMillisecondScale as u64;
-            request.result = -1;
+        request.replyTransactionType = if out.is_empty() {
+            kIOI2CNoTransactionType
+        } else {
+            unsafe { get_supported_transaction_type().unwrap_or(kIOI2CNoTransactionType) }
+        };
+        request.replyAddress = ((i2c_address << 1) | 1) as u32;
+        request.replySubAddress = SUB_ADDRESS_DDC_CI;
 
-            request.replyTransactionType = intel::get_response_transaction_type::<C>();
-            request.replyAddress = ((I2C_ADDRESS_DDC_CI << 1) | 1) as u32;
-            request.replySubAddress = SUB_ADDRESS_DDC_CI;
+        request.replyBuffer = &out as *const _ as usize;
+        request.replyBytes = out.len() as u32;
 
-            request.replyBuffer = &reply_data as *const _ as usize;
-            request.replyBytes = reply_data.len() as u32;
+        unsafe {
+            intel::send_request(service, &mut request)?;
+        }
+        if request.replyTransactionType != kIOI2CNoTransactionType {
+            Ok(&mut [0u8; 0])
+        } else {
+            Ok(out)
+        }
+    }
 
+    fn execute_arm<'a>(
+        service: &IOAVService,
+        i2c_address: u16,
+        request_data: &[u8],
+        out: &'a mut [u8],
+        response_delay: Duration,
+    ) -> Result<&'a mut [u8], crate::error::Error> {
+        unsafe {
+            verify_io(IOAVServiceWriteI2C(
+                *service,
+                i2c_address as _, // I2C_ADDRESS_DDC_CI as u32,
+                SUB_ADDRESS_DDC_CI as _,
+                // Skip the first byte, which is the I2C address, which this API does not need
+                request_data[1..].as_ptr() as _,
+                (request_data.len() - 1) as _, // command_length as u32 + 3,
+            ))?;
+        };
+        if !out.is_empty() {
+            std::thread::sleep(response_delay);
             unsafe {
-                intel::send_request(service, &mut request, C::DELAY_COMMAND_MS as u32)?;
-            }
-
-            if request.replyTransactionType == kIOI2CNoTransactionType {
-                CommandResult::decode(&[0u8; 0]).map_err(From::from)
-            } else {
-                Self::decode_reply::<C>(&reply_data)
-            }
-        } else {
-            Err(Error::ServiceNotFound)
-        }
-    }
-
-    fn execute_arm<C: Command>(&mut self, command: C) -> Result<<C as Command>::Ok, crate::error::Error> {
-        if let MonitorService::Arm(service) = &self.service {
-            let request_data = Self::encode_request(&command)?;
-            std::thread::sleep(std::time::Duration::from_millis(C::DELAY_COMMAND_MS));
-            let success = unsafe {
-                IOAVServiceWriteI2C(
+                verify_io(IOAVServiceReadI2C(
                     *service,
-                    I2C_ADDRESS_DDC_CI as u32,
-                    SUB_ADDRESS_DDC_CI as u32,
-                    // Skip the first byte, which is the I2C address, which this API does not need
-                    request_data[1..].as_ptr() as _,
-                    (request_data.len() - 1) as _, // command_length as u32 + 3,
-                )
+                    i2c_address as _, // I2C_ADDRESS_DDC_CI as u32,
+                    0,
+                    out.as_ptr() as _,
+                    out.len() as u32,
+                ))?;
             };
-            if success != 0 {
-                return Err(Error::Io(success));
-            }
-            if C::Ok::MAX_LEN == 0 {
-                CommandResult::decode(&[0u8; 0]).map_err(From::from)
-            } else {
-                std::thread::sleep(std::time::Duration::from_millis(C::DELAY_RESPONSE_MS));
-                // Allocate data for the response. 36 bytes is larger than any response
-                assert!(C::Ok::MAX_LEN <= 36);
-                let reply_data = [0u8; 36];
-
-                let success = unsafe {
-                    IOAVServiceReadI2C(
-                        *service,
-                        I2C_ADDRESS_DDC_CI as u32,
-                        0,
-                        reply_data.as_ptr() as _,
-                        reply_data.len() as u32,
-                    )
-                };
-                if success != 0 {
-                    return Err(Error::Io(success));
-                }
-                Self::decode_reply::<C>(&reply_data)
-            }
+            Ok(out)
         } else {
-            Err(Error::ServiceNotFound)
+            Ok(&mut [0u8; 0])
         }
     }
 
-    /// Encode the command into request_data buffer
-    fn encode_request<C: Command>(command: &C) -> Result<Vec<u8>, crate::error::Error> {
-        // 36 bytes is an arbitrary number, larger than any I2C command length.
-        // Cannot use [0u8; C::MAX_LEN] (associated constants do not work here)
-        assert!(C::MAX_LEN <= 36);
-        let mut encoded_command = [0u8; 36];
-        let command_length = command.encode(&mut encoded_command)?;
-        let mut request_data = [0u8; 36 + 3];
-        Ok(Self::encode_command(&encoded_command[0..command_length], &mut request_data).to_owned())
+    fn encode_command<'a>(&self, data: &[u8], packet: &'a mut [u8]) -> &'a [u8] {
+        packet[0] = SUB_ADDRESS_DDC_CI;
+        packet[1] = 0x80 | data.len() as u8;
+        packet[2..2 + data.len()].copy_from_slice(data);
+        packet[2 + data.len()] =
+            Self::checksum(iter::once((self.i2c_address as u8) << 1).chain(packet[..2 + data.len()].iter().cloned()));
+        &packet[..3 + data.len()]
     }
 
-    fn decode_reply<C: Command>(reply_data: &[u8]) -> Result<<C as Command>::Ok, crate::error::Error> {
-        let reply_length = (reply_data[1] & 0x7f) as usize;
-        if reply_length + 2 >= reply_data.len() {
+    fn decode_response<'a>(&self, response: &'a mut [u8]) -> Result<&'a mut [u8], crate::error::Error> {
+        if response.is_empty() {
+            return Ok(response);
+        };
+        let len = (response[1] & 0x7f) as usize;
+        if len + 2 >= response.len() {
             return Err(Error::Ddc(ErrorCode::InvalidLength));
         }
         let checksum = Self::checksum(
-            iter::once(((I2C_ADDRESS_DDC_CI << 1) | 1) as u8)
+            iter::once(((self.i2c_address << 1) | 1) as u8)
                 .chain(iter::once(SUB_ADDRESS_DDC_CI))
-                .chain(reply_data[1..2 + reply_length].iter().cloned()),
+                .chain(response[1..2 + len].iter().cloned()),
         );
-        if reply_data[2 + reply_length] != checksum {
+        if response[2 + len] != checksum {
             return Err(Error::Ddc(ErrorCode::InvalidChecksum));
         }
-        CommandResult::decode(&reply_data[2..C::Ok::MAX_LEN + 2]).map_err(From::from)
+        Ok(&mut response[2..2 + len])
     }
 }
 
 impl DdcHost for Monitor {
     type Error = Error;
+
+    fn sleep(&mut self) {
+        self.delay.sleep()
+    }
 }
 
-impl DdcCommand for Monitor {
-    fn execute<C: Command>(&mut self, command: C) -> Result<<C as Command>::Ok, Self::Error> {
-        match &self.service {
-            MonitorService::Intel(_) => self.execute_intel(command),
-            MonitorService::Arm(_) => self.execute_arm(command),
-        }
+impl DdcCommandRaw for Monitor {
+    fn execute_raw<'a>(
+        &mut self,
+        data: &[u8],
+        out: &'a mut [u8],
+        response_delay: Duration,
+    ) -> Result<&'a mut [u8], Self::Error> {
+        assert!(data.len() <= 36);
+        let mut packet = [0u8; 36 + 3];
+        let packet = self.encode_command(data, &mut packet);
+        let response = match &self.service {
+            MonitorService::Intel(service) => {
+                Self::execute_intel(service, self.i2c_address, packet, out, response_delay)
+            }
+            MonitorService::Arm(service) => Self::execute_arm(service, self.i2c_address, packet, out, response_delay),
+        }?;
+        self.decode_response(response)
     }
 }
 
 impl DdcCommandMarker for Monitor {}
+
+impl DdcCommandRawMarker for Monitor {
+    fn set_sleep_delay(&mut self, delay: Delay) {
+        self.delay = delay;
+    }
+}
