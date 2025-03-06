@@ -30,7 +30,7 @@ pub(crate) fn execute<'a>(
     request.commFlags = 0;
     request.sendAddress = (i2c_address << 1) as u32;
     request.sendTransactionType = kIOI2CSimpleTransactionType;
-    request.sendBuffer = &request_data as *const _ as usize;
+    request.sendBuffer = request_data.as_ptr() as usize;
     request.sendBytes = request_data.len() as u32;
     request.minReplyDelay = response_delay.as_nanos() as u64;
     request.result = -1;
@@ -43,13 +43,13 @@ pub(crate) fn execute<'a>(
     request.replyAddress = ((i2c_address << 1) | 1) as u32;
     request.replySubAddress = SUB_ADDRESS_DDC_CI;
 
-    request.replyBuffer = &out as *const _ as usize;
+    request.replyBuffer = out.as_ptr() as usize;
     request.replyBytes = out.len() as u32;
 
     unsafe {
         send_request(service, &mut request)?;
     }
-    if request.replyTransactionType != kIOI2CNoTransactionType {
+    if request.replyTransactionType == kIOI2CNoTransactionType {
         Ok(&mut [0u8; 0])
     } else {
         Ok(out)

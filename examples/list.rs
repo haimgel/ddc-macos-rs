@@ -32,5 +32,16 @@ fn main() {
                 _ => println!("\tCould not parse provided EDID information"),
             }
         }
+
+        match monitor.get_vcp_feature(0x10) {
+            Ok(value) => println!("\tvcp info: {:?}", value),
+            Err(e) => println!("\tFailed to set brightness: {}", e),
+        }
+        
+        match monitor.set_vcp_feature(0x10, 0) {
+            Ok(_) => println!("\tset brightness to 0"),
+            Err(e) => println!("\tFailed to set brightness: {}", e),
+        }
+    
     }
 }
