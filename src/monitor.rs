@@ -8,13 +8,39 @@ use core_foundation::base::{CFType, TCFType};
 use core_foundation::data::CFData;
 use core_foundation::dictionary::CFDictionary;
 use core_foundation::string::{CFString, CFStringRef};
-use core_graphics::display::CGDisplay;
+use core_graphics::base::CGError;
+use core_graphics::display::{CGDirectDisplayID, CGDisplay};
 use ddc::{
     DdcCommand, DdcCommandMarker, DdcCommandRaw, DdcCommandRawMarker, DdcHost, Delay, ErrorCode, I2C_ADDRESS_DDC_CI,
     SUB_ADDRESS_DDC_CI,
 };
 use std::time::Duration;
 use std::{fmt, iter};
+
+extern "C" {
+    // Not bound by core-graphics 0.24; declared here so we can include mirrored
+    // secondary displays. Links against the CoreGraphics framework already
+    // pulled in by the core-graphics crate.
+    fn CGGetOnlineDisplayList(max_displays: u32, online: *mut CGDirectDisplayID, count: *mut u32) -> CGError;
+}
+
+/// Display ids for every online display, including mirrored secondaries that
+/// `CGDisplay::active_displays()` omits. Those secondaries still have working
+/// DDC services, so they must be enumerated for DDC/CI to reach them.
+fn online_display_ids() -> Result<Vec<CGDirectDisplayID>, Error> {
+    let mut count: u32 = 0;
+    let err: CGError = unsafe { CGGetOnlineDisplayList(0, std::ptr::null_mut(), &mut count) };
+    if err != 0 {
+        return Err(Error::from(err));
+    }
+    let mut ids = vec![0 as CGDirectDisplayID; count as usize];
+    let err: CGError = unsafe { CGGetOnlineDisplayList(count, ids.as_mut_ptr(), &mut count) };
+    if err != 0 {
+        return Err(Error::from(err));
+    }
+    ids.truncate(count as usize);
+    Ok(ids)
+}
 
 /// DDC access method for a monitor
 #[derive(Debug)]
@@ -51,8 +77,7 @@ impl Monitor {
 
     /// Enumerate all connected physical monitors returning [Vec<Monitor>]
     pub fn enumerate() -> Result<Vec<Self>, Error> {
-        let monitors = CGDisplay::active_displays()
-            .map_err(Error::from)?
+        let monitors = online_display_ids()?
             .into_iter()
             .filter_map(|display_id| {
                 let display = CGDisplay::new(display_id);
