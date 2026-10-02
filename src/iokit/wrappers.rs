@@ -5,7 +5,7 @@ use core_foundation::string::CFString;
 use io_kit_sys::keys::kIOServicePlane;
 use io_kit_sys::types::{io_iterator_t, io_object_t};
 use io_kit_sys::{
-    kIOMasterPortDefault, kIORegistryIterateRecursively, IOIteratorNext, IOObjectRelease,
+    kIORegistryIterateRecursively, IOIteratorNext, IOObjectRelease,
     IORegistryEntryCreateCFProperties, IORegistryEntryCreateIterator, IORegistryGetRootEntry,
     IOServiceGetMatchingServices, IOServiceMatching, IOServiceNameMatching,
 };
@@ -67,7 +67,7 @@ impl IoIterator {
     fn matching_services(dict: CFMutableDictionaryRef) -> Result<Self, std::io::Error> {
         let mut iter: io_iterator_t = 0;
         unsafe {
-            kern_try!(IOServiceGetMatchingServices(kIOMasterPortDefault, dict as _, &mut iter));
+            kern_try!(IOServiceGetMatchingServices(kIOMainPortDefault, dict as _, &mut iter));
         }
         Ok(Self(iter))
     }
