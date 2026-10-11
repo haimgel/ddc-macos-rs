@@ -46,7 +46,7 @@ pub(crate) fn execute<'a>(
                 *service,
                 i2c_address as _, // I2C_ADDRESS_DDC_CI as u32,
                 0,
-                out.as_ptr() as _,
+                out.as_mut_ptr() as _,
                 out.len() as u32,
             ))?;
         };
