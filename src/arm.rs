@@ -69,35 +69,47 @@ pub(crate) fn get_display_av_service(display: CGDisplay) -> Result<(IOAVService,
         .downcast::<CFString>()
         .ok_or(DisplayLocationNotFound)?
         .to_string();
-    let external_location = CFString::from_static_string("External").into_CFType();
 
-    let mut iter = IoIterator::root()?;
-    while let Some(service) = iter.next() {
-        if let Ok(registry_location) = get_service_registry_entry_path((&service).into()) {
-            if registry_location == location {
-                while let Some(service) = iter.next() {
-                    if get_service_registry_entry_name((&service).into())? == "DCPAVServiceProxy" {
-                        let av_service = unsafe { IOAVServiceCreateWithService(kCFAllocatorDefault, (&service).into()) };
-                        let loc_ref = unsafe {
-                            IORegistryEntryCreateCFProperty(
-                                (&service).into(),
-                                CFString::from_static_string("Location").as_concrete_TypeRef(),
-                                kCFAllocatorDefault,
-                                kIORegistryIterateRecursively,
-                            )
-                        };
-                        if !loc_ref.is_null() {
-                            let loc_ref = unsafe { CFType::wrap_under_create_rule(loc_ref) };
-                            if !av_service.is_null() && (loc_ref == external_location) {
-                                return Ok((av_service, i2c_address(service)));
-                            }
-                        }
-                    }
+    let mut found_display = false;
+    for service in IoIterator::root()? {
+        if !found_display {
+            // The display's framebuffer is the node at its IODisplayLocation, whatever its name.
+            if let Ok(registry_location) = get_service_registry_entry_path((&service).into()) {
+                found_display = registry_location == location;
+            }
+            continue;
+        }
+        match get_service_registry_entry_name((&service).into())?.as_str() {
+            // Another display's framebuffer: this display has no AV service.
+            "AppleCLCD2" | "IOMobileFramebufferShim" => return Err(ServiceNotFound),
+            "DCPAVServiceProxy" if serves_external_display(&service) => {
+                let av_service = unsafe { IOAVServiceCreateWithService(kCFAllocatorDefault, (&service).into()) };
+                if !av_service.is_null() {
+                    return Ok((av_service, i2c_address(service)));
                 }
             }
+            _ => {}
         }
     }
     Err(ServiceNotFound)
+}
+
+/// Whether this `DCPAVServiceProxy` serves an external display.
+/// The built-in display has one too, with a `Location` of `Embedded`.
+fn serves_external_display(service: &IoObject) -> bool {
+    let location = unsafe {
+        IORegistryEntryCreateCFProperty(
+            service.into(),
+            CFString::from_static_string("Location").as_concrete_TypeRef(),
+            kCFAllocatorDefault,
+            kIORegistryIterateRecursively,
+        )
+    };
+    if location.is_null() {
+        return false;
+    }
+    let location = unsafe { CFType::wrap_under_create_rule(location) };
+    location == CFString::from_static_string("External").into_CFType()
 }
 
 const I2C_ADDRESS_DDC_CI_MDCP29XX: u16 = 0xB7;
